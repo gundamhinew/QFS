@@ -1,5 +1,5 @@
 tushare:
-  token: "ce7174db8fe29d816a25bd9e2f003daf5cb95805d965a00957ff0bb9"
+  token: "{TUSHARE_Token}"
 
 paths:
   raw_root: "./data/raw"
