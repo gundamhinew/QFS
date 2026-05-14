@@ -1,0 +1,12 @@
+tushare:
+  token: "ce7174db8fe29d816a25bd9e2f003daf5cb95805d965a00957ff0bb9"
+
+paths:
+  raw_root: "./data/raw"
+  factor_root: "./data/factor"
+  meta_db: "./data/meta/datahub.db"
+
+update:
+  start_date: "20180101"
+  exchange: "SSE"
+  sleep_seconds: 0.2
