@@ -170,3 +170,83 @@ class DataManager:
         ).reset_index(drop=True)
 
         return df
+
+    def get_adjusted_price(
+            self,
+            start: str,
+            end: str,
+            ts_codes: list[str] | None = None,
+            price_cols: list[str] | None = None,
+            adjust: str = "total_return"
+    ) -> pd.DataFrame:
+        """
+        获取复权价格。
+
+        adjust:
+            total_return:
+                使用 price * adj_factor，适合计算收益率、动量、波动率等因子。
+
+            qfq:
+                前复权价格，将查询区间最后一天价格锚定为原始价格。
+                更适合展示价格曲线。
+        """
+
+        if price_cols is None:
+            price_cols = ["open", "high", "low", "close"]
+
+        if adjust not in ["total_return", "qfq"]:
+            raise ValueError("adjust must be one of: 'total_return', 'qfq'")
+
+        price = self.get_daily_price(
+            start=start,
+            end=end,
+            ts_codes=ts_codes
+        )
+
+        adj = self.get_adj_factor(
+            start=start,
+            end=end,
+            ts_codes=ts_codes
+        )
+
+        if price.empty or adj.empty:
+            return pd.DataFrame()
+
+        df = price.merge(
+            adj,
+            on=["ts_code", "trade_date"],
+            how="left"
+        )
+
+        df = df.sort_values(
+            ["ts_code", "trade_date"]
+        ).reset_index(drop=True)
+
+        df["adj_factor"] = (
+            df.groupby("ts_code")["adj_factor"]
+            .ffill()
+            .bfill()
+        )
+
+        if adjust == "total_return":
+            for col in price_cols:
+                if col in df.columns:
+                    df[f"adj_{col}"] = df[col] * df["adj_factor"]
+
+        elif adjust == "qfq":
+            latest_factor = (
+                df.groupby("ts_code")["adj_factor"]
+                .transform("last")
+            )
+
+            for col in price_cols:
+                if col in df.columns:
+                    df[f"adj_{col}"] = (
+                            df[col] * df["adj_factor"] / latest_factor
+                    )
+
+        df = df.sort_values(
+            ["trade_date", "ts_code"]
+        ).reset_index(drop=True)
+
+        return df
