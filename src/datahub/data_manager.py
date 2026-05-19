@@ -171,6 +171,39 @@ class DataManager:
 
         return df
 
+    def get_stock_basic(
+        self,
+        ts_codes: list[str] | None = None,
+        active_only: bool = True
+    ) -> pd.DataFrame:
+        """
+        读取股票基础信息。
+
+        说明
+        ----
+        stock_basic 不是按月分区表，而是全量快照表。
+        这里仍然通过 DataManager 暴露统一读取入口，避免上层模块直接访问原始文件。
+        """
+
+        path = self.raw_root / "stock_basic" / "stock_basic.parquet"
+
+        if not path.exists():
+            return pd.DataFrame()
+
+        df = pd.read_parquet(path)
+
+        if ts_codes is not None:
+            df = df[df["ts_code"].isin(ts_codes)]
+
+        if active_only and "is_active" in df.columns:
+            df = df[df["is_active"] == 1]
+
+        df = df.sort_values(
+            "ts_code"
+        ).reset_index(drop=True)
+
+        return df
+
     def get_adjusted_price(
             self,
             start: str,
