@@ -9,7 +9,6 @@ class PerformanceAnalyzer:
     绩效分析器。
 
     输入回测产生的日频净值曲线和交易记录，输出常用绩效指标。
-    第一版只依赖 equity_curve 和 trade_log，不反向依赖回测引擎。
     """
 
     def __init__(
@@ -31,30 +30,90 @@ class PerformanceAnalyzer:
 
         return float(drawdown.min())
 
-    @staticmethod
     def _calc_turnover(
+        self,
         equity_curve: pd.DataFrame,
         trade_log: pd.DataFrame
-    ) -> float:
+    ) -> dict[str, float]:
         """
-        计算简化换手率。
+        计算区间总换手、日均换手和年化换手。
+        """
 
-        第一版用成交额合计 / 平均总资产。后续可升级为按日双边换手、
-        单边换手或组合权重变化口径。
-        """
+        zero_turnover = {
+            "total_turnover": 0.0,
+            "average_daily_turnover": 0.0,
+            "annualized_turnover": 0.0,
+        }
 
         if equity_curve.empty or trade_log.empty:
-            return 0.0
+            return zero_turnover
 
-        if "trade_value" not in trade_log.columns:
-            return 0.0
+        required_trade_cols = {"trade_date", "trade_value"}
+        required_equity_cols = {"trade_date", "total_equity"}
 
-        avg_equity = equity_curve["total_equity"].mean()
+        if not required_trade_cols.issubset(trade_log.columns):
+            return zero_turnover
+
+        if not required_equity_cols.issubset(equity_curve.columns):
+            return zero_turnover
+
+        equity = equity_curve.copy()
+        trades = trade_log.copy()
+
+        equity["trade_date"] = pd.to_datetime(equity["trade_date"])
+        trades["trade_date"] = pd.to_datetime(trades["trade_date"])
+        trades["abs_trade_value"] = trades["trade_value"].abs()
+
+        valid_equity = equity[
+            equity["total_equity"].notna()
+            & (equity["total_equity"] > 0)
+        ].copy()
+
+        if valid_equity.empty:
+            return zero_turnover
+
+        avg_equity = valid_equity["total_equity"].mean()
 
         if avg_equity <= 0 or pd.isna(avg_equity):
-            return 0.0
+            return zero_turnover
 
-        return float(trade_log["trade_value"].abs().sum() / avg_equity)
+        total_turnover = (
+            trades["abs_trade_value"].sum()
+            / avg_equity
+        )
+
+        daily_trade_value = (
+            trades
+            .groupby("trade_date", as_index=False)["abs_trade_value"]
+            .sum()
+        )
+
+        daily_turnover = daily_trade_value.merge(
+            valid_equity[["trade_date", "total_equity"]],
+            on="trade_date",
+            how="inner"
+        )
+
+        if daily_turnover.empty:
+            average_daily_turnover = 0.0
+        else:
+            daily_turnover["daily_turnover"] = (
+                daily_turnover["abs_trade_value"]
+                / daily_turnover["total_equity"]
+            )
+            average_daily_turnover = daily_turnover[
+                "daily_turnover"
+            ].mean()
+
+        annualized_turnover = (
+            average_daily_turnover * self.annualization
+        )
+
+        return {
+            "total_turnover": float(total_turnover),
+            "average_daily_turnover": float(average_daily_turnover),
+            "annualized_turnover": float(annualized_turnover),
+        }
 
     def analyze(
         self,
@@ -63,8 +122,6 @@ class PerformanceAnalyzer:
     ) -> dict:
         """
         输出绩效指标字典。
-
-        指标均基于日频净值计算，夏普率暂按无风险利率为 0 的简化口径。
         """
 
         trade_log = trade_log if trade_log is not None else pd.DataFrame()
@@ -77,7 +134,9 @@ class PerformanceAnalyzer:
                 "annual_volatility": np.nan,
                 "sharpe": np.nan,
                 "max_drawdown": np.nan,
-                "turnover": 0.0,
+                "total_turnover": 0.0,
+                "average_daily_turnover": 0.0,
+                "annualized_turnover": 0.0,
                 "number_of_trades": 0,
             }
 
@@ -100,10 +159,16 @@ class PerformanceAnalyzer:
 
         excess_return = returns - self.risk_free_rate / self.annualization
         sharpe = (
-            float(excess_return.mean() / returns.std(ddof=0) * np.sqrt(self.annualization))
+            float(
+                excess_return.mean()
+                / returns.std(ddof=0)
+                * np.sqrt(self.annualization)
+            )
             if not returns.empty and returns.std(ddof=0) > 0
             else np.nan
         )
+
+        turnover_metrics = self._calc_turnover(df, trade_log)
 
         return {
             "final_nav": final_nav,
@@ -112,6 +177,12 @@ class PerformanceAnalyzer:
             "annual_volatility": annual_volatility,
             "sharpe": sharpe,
             "max_drawdown": self._max_drawdown(df["nav"]),
-            "turnover": self._calc_turnover(df, trade_log),
+            "total_turnover": turnover_metrics["total_turnover"],
+            "average_daily_turnover": turnover_metrics[
+                "average_daily_turnover"
+            ],
+            "annualized_turnover": turnover_metrics[
+                "annualized_turnover"
+            ],
             "number_of_trades": int(len(trade_log)),
         }

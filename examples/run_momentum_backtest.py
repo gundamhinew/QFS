@@ -39,6 +39,15 @@ def main():
     lookback = 60
     top_n = 50
     initial_cash = 1_000_000
+    rebalance_frequency = "monthly"
+
+    print("===== backtest parameters =====")
+    print(f"start: {start}")
+    print(f"end: {end}")
+    print(f"lookback: {lookback}")
+    print(f"top_n: {top_n}")
+    print(f"initial_cash: {initial_cash}")
+    print(f"rebalance_frequency: {rebalance_frequency}")
 
     dm = DataManager(raw_root=str(PROJECT_ROOT / "data" / "raw"))
 
@@ -51,6 +60,9 @@ def main():
     if universe.empty:
         print("Universe is empty.")
         return
+
+    print("\n===== universe.shape =====")
+    print(universe.shape)
 
     universe_codes = sorted(
         universe["ts_code"].dropna().unique().tolist()
@@ -70,6 +82,9 @@ def main():
         print("Raw factor is empty.")
         return
 
+    print("\n===== raw_factor.shape =====")
+    print(raw_factor.shape)
+
     raw_factor["trade_date"] = pd.to_datetime(raw_factor["trade_date"])
 
     # 用每日股票池限制因子横截面，避免策略选到 Universe 外股票。
@@ -79,12 +94,18 @@ def main():
         how="inner"
     )
 
+    print("\n===== factor_in_universe.shape =====")
+    print(factor_in_universe.shape)
+
     processor = FactorProcessor()
     processed_factor = processor.process_single_factor(
         factor_in_universe,
         direction="positive",
         min_count=top_n
     )
+
+    print("\n===== processed_factor.shape =====")
+    print(processed_factor.shape)
 
     strategy = TopNEqualWeightStrategy(
         params={"top_n": top_n}
@@ -93,9 +114,13 @@ def main():
         processed_factor
     )
 
+    print("\n===== target_positions.shape =====")
+    print(target_positions.shape)
+
     engine = BacktestEngine(
         dm=dm,
-        initial_cash=initial_cash
+        initial_cash=initial_cash,
+        rebalance_frequency=rebalance_frequency
     )
     equity_curve = engine.run_backtest(
         target_positions=target_positions,

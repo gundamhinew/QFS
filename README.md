@@ -1,685 +1,171 @@
 # quant_factor_selection
 
-A-share multi-factor quantitative research, backtesting, and QMT execution framework.
+A-share quantitative research, backtesting, and future QMT execution framework.
 
-This project is not intended to be a one-off factor experiment.  
-Its goal is to build a reusable, extensible, and production-oriented quantitative research and trading system for the Chinese A-share market.
+This project is not intended to be a one-off factor experiment. The goal is to build a reusable, extensible research and trading system for medium- and low-frequency Chinese A-share equity strategies.
 
-The framework is designed around:
+## Architecture
 
 ```text
 Local Data Warehouse
-+ Standardized Factor Interface
-+ Strategy Layer
-+ Portfolio Construction
-+ Backtest Engine
-+ QMT Execution Adapter
+-> DataManager
+-> UniverseBuilder
+-> Factor Layer
+-> FactorProcessor
+-> Strategy Layer
+-> BacktestEngine
+-> Account / Broker / PerformanceAnalyzer
+-> QMT Adapter (future)
 ```
 
-The project will be continuously extended with Codex Agent to:
+Core principles:
 
-- reproduce academic factors and trading strategies;
-- test and iterate multi-factor models;
-- simulate realistic A-share trading constraints;
-- incorporate transaction frictions;
-- eventually generate outputs directly executable in QMT.
+- Keep data, factor, strategy, backtest, and execution responsibilities separate.
+- Keep research logic outside QMT.
+- Use standardized `target_positions` as the interface between strategy, backtest, and future execution.
+- Do not modify local raw market data, parquet files, metadata databases, or tokens during research runs.
 
----
+## Current Capabilities
 
-# 1. Project Goals
+The system currently supports:
 
-The framework focuses on medium- and low-frequency A-share equity strategies.
+1. Local A-share data layer based on Parquet and SQLite metadata.
+2. `DataManager` unified data access.
+3. `UniverseBuilder` for tradable universe filtering.
+4. Factor framework and a 60-day momentum example.
+5. `FactorProcessor` for winsorization, z-score, ranking, and percentile score.
+6. Strategy layer with `TopNEqualWeightStrategy`.
+7. `BacktestEngine` with:
+   - T-day signal;
+   - T+1 open execution;
+   - T+1 close valuation;
+   - limit-up / limit-down restrictions;
+   - 100-share lot-size handling;
+   - daily / weekly / monthly rebalance frequency.
+8. `PerformanceAnalyzer` with:
+   - `final_nav`
+   - `total_return`
+   - `annual_return`
+   - `annual_volatility`
+   - `sharpe`
+   - `max_drawdown`
+   - `total_turnover`
+   - `average_daily_turnover`
+   - `annualized_turnover`
+   - `number_of_trades`
 
-Main objectives:
-
-1. Build a local A-share data warehouse;
-2. Create unified data access interfaces;
-3. Standardize factor research workflows;
-4. Support multi-factor strategy development;
-5. Build a reusable backtesting framework;
-6. Simulate realistic portfolio/account behavior;
-7. Model realistic Chinese market constraints and frictions;
-8. Eventually generate QMT-compatible execution outputs.
-
----
-
-# 2. Overall Architecture
-
-```text
-Tushare
-↓
-DataHub / Parquet / SQLite
-↓
-DataManager
-↓
-Factor Layer
-↓
-FactorProcessor
-↓
-Strategy Layer
-↓
-Target Positions
-↓
-Backtest Engine
-↓
-Account / Broker / Performance
-↓
-QMT Adapter (future)
-```
-
-Core design principles:
-
-- Separate data, factor, strategy, backtest, and execution layers;
-- Share logic between backtest and live trading whenever possible;
-- Use QMT as execution infrastructure only;
-- Keep research logic outside QMT;
-- Ensure all strategies output standardized target positions;
-- Avoid rewriting infrastructure when adding new factors or strategies.
-
----
-
-# 3. Project Structure
+## Project Structure
 
 ```text
 quant_factor_selection/
-├── config/
-│   └── settings.yaml
-│
-├── data/
-│   ├── raw/
-│   ├── factor/
-│   └── meta/
-│
-├── examples/
-│
-├── src/
-│   ├── main.py
-│   │
-│   ├── datahub/
-│   │   ├── client.py
-│   │   ├── storage.py
-│   │   ├── meta_db.py
-│   │   ├── schemas.py
-│   │   ├── data_manager.py
-│   │   ├── downloaders/
-│   │   └── jobs/
-│   │
-│   ├── factors/
-│   │   ├── base.py
-│   │   ├── processor.py
-│   │   ├── registry.py
-│   │   └── momentum.py
-│   │
-│   ├── strategies/
-│   │   ├── base.py
-│   │   ├── registry.py
-│   │   └── top_n_strategy.py
-│   │
-│   ├── backtest/
-│   │   ├── account.py
-│   │   ├── broker.py
-│   │   ├── engine.py
-│   │   ├── performance.py
-│   │   └── result.py
-│   │
-│   └── qmt/
-│
-├── requirements.txt
-├── .gitignore
-└── README.md
+|-- config/
+|-- data/
+|   |-- raw/
+|   |-- factor/
+|   `-- meta/
+|-- examples/
+|   `-- run_momentum_backtest.py
+|-- src/
+|   |-- backtest/
+|   |   |-- account.py
+|   |   |-- broker.py
+|   |   |-- engine.py
+|   |   |-- order_utils.py
+|   |   |-- performance.py
+|   |   |-- rebalance.py
+|   |   `-- trading_rules.py
+|   |-- datahub/
+|   |-- factors/
+|   |-- strategies/
+|   |-- universe/
+|   `-- qmt/
+|-- requirements.txt
+`-- README.md
 ```
 
----
+## Usage
 
-# 4. Data Layer
-
-The data layer converts external financial data into reusable local structured assets.
-
-Current data source:
-
-```text
-Tushare
-```
-
-Currently supported datasets:
-
-| Dataset | Description |
-|---|---|
-| stock_basic | Stock master table |
-| trade_calendar | Trading calendar |
-| daily_price | Daily OHLCV data |
-| adj_factor | Adjustment factors |
-| daily_basic | Daily valuation and market data |
-
-Storage design:
-
-```text
-SQLite:
-    metadata, job status, task tracking
-
-Parquet:
-    market data, factor data, fundamentals
-```
-
-Git does NOT manage raw market data.
-
----
-
-# 5. Usage
-
-The project currently uses:
-
-```bash
-python -m src.main <job_name>
-```
-
-as the unified CLI entry point.
-
----
-
-## 5.1 Bootstrap Base Data
-
-Downloads:
-
-- stock master table;
-- trading calendar.
+Bootstrap base data:
 
 ```bash
 python -m src.main bootstrap
 ```
 
-Usually only needed once.
-
----
-
-## 5.2 Daily Market Update
-
-Downloads:
-
-- daily prices;
-- adjustment factors;
-- daily fundamentals.
+Run daily market updates:
 
 ```bash
 python -m src.main daily_update
 ```
 
-Recommended to run once per trading day.
-
-Supports resumable incremental updates.
-
----
-
-## 5.3 Financial Statement Update
-
-Downloads:
-
-- income statement;
-- balance sheet;
-- cash flow statement;
-- financial indicators.
+Run the 60-day momentum TopN backtest example:
 
 ```bash
-python -m src.main financial_update
+python examples/run_momentum_backtest.py
 ```
 
-Limit update size:
+The example prints key parameters, intermediate dataset shapes, equity curve tail, trade log head, restriction log head, and the performance summary.
 
-```bash
-python -m src.main financial_update --limit 100
-```
+## Backtest Design
 
----
+`BacktestEngine` consumes strategy-generated `target_positions`.
 
-# 6. DataManager
-
-`DataManager` is the unified data access layer.
-
-Responsibilities:
-
-- read parquet partitions;
-- merge multiple partitions;
-- standardize datetime formats;
-- load price/fundamental datasets;
-- generate adjusted prices.
-
-Example:
-
-```python
-from src.datahub.data_manager import DataManager
-
-dm = DataManager()
-
-price = dm.get_adjusted_price(
-    start="2020-01-01",
-    end="2020-12-31",
-    ts_codes=["000001.SZ"],
-    adjust="total_return"
-)
-```
-
----
-
-# 7. Factor Layer
-
-All factors must inherit from:
-
-```python
-BaseFactor
-```
-
-and implement:
-
-```python
-build(start, end, universe)
-```
-
-Standard output schema:
+`trade_date` in `target_positions` is the signal date:
 
 ```text
-ts_code
-trade_date
-factor_value
-factor_name
+signal_date close -> target portfolio is known
+next trading day open -> orders execute
+next trading day close -> account is valued
 ```
 
----
+Trading rules such as limit-up / limit-down checks, 100-share lot-size handling, and rebalance frequency filtering are handled in the backtest layer before orders reach `Broker`.
 
-## Current Example Factor
+`Broker` is responsible for order execution, transaction costs, slippage, cash updates, and position updates.
 
-### 60-Day Momentum
+`Account` is responsible for cash, positions, total equity, NAV, and account history.
 
-```python
-mom_60 = adj_close / adj_close.shift(60) - 1
-```
+## Rebalance Frequency
 
----
+`BacktestEngine` supports:
 
-# 8. Factor Processor
+- `daily`: use every available signal date;
+- `weekly`: use the last available signal date in each natural week;
+- `monthly`: use the last available signal date in each natural month.
 
-Raw factors should NOT be directly used for trading.
+The rebalance frequency controls which signal dates are used. Execution still follows T+1 open execution and T+1 close valuation.
 
-Current processing pipeline:
+## Performance Metrics
 
-```text
-Raw Factor
-↓
-Drop Missing Values
-↓
-Winsorization
-↓
-Z-score Standardization
-↓
-Direction Alignment
-↓
-Cross-sectional Ranking
-↓
-Percentile Score
-```
+Turnover is reported with three fields:
 
-Core outputs:
+- `total_turnover`: total absolute traded value divided by average total equity over the backtest period;
+- `average_daily_turnover`: average of daily traded value divided by that day's total equity;
+- `annualized_turnover`: `average_daily_turnover * annualization`, with annualization defaulting to 252.
 
-| Field | Description |
-|---|---|
-| factor_value | Raw factor |
-| factor_winsorized | Winsorized factor |
-| factor_zscore | Standardized factor |
-| factor_score | Direction-aligned factor |
-| factor_rank | Cross-sectional rank |
-| factor_percentile | Cross-sectional percentile |
+## Not Yet Implemented
 
-Definitions:
+The following items are still future work:
 
-```text
-factor_rank:
-    1 = best stock
+1. Volume participation constraints.
+2. More precise suspension handling.
+3. More precise historical price-limit rules.
+4. Industry neutrality.
+5. Multi-factor combination.
+6. Benchmark comparison.
+7. QMT Adapter.
 
-factor_percentile:
-    closer to 1 = better
-```
+## Development Rules
 
----
+Codex and contributors should follow these rules:
 
-# 9. Strategy Layer
+1. Do not write one-off scripts when the logic belongs in existing modules.
+2. Do not bypass the existing architecture.
+3. New factors should inherit `BaseFactor`.
+4. New strategies should inherit `BaseStrategy`.
+5. Do not directly modify parquet files, raw market data, metadata databases, or token files.
+6. Keep `Broker` and `Account` responsibilities separate.
+7. Keep strategy outputs centered on `target_positions`.
 
-The strategy layer converts processed factor signals into target portfolios.
-
-Responsibilities:
-
-- portfolio selection;
-- portfolio weighting;
-- rebalance logic.
-
-Does NOT handle:
-
-- raw data download;
-- factor calculation;
-- order execution;
-- account simulation.
-
-Standard output schema:
-
-```text
-trade_date
-ts_code
-target_weight
-strategy_name
-```
-
----
-
-## Current Example Strategy
-
-### TopNEqualWeightStrategy
-
-Logic:
-
-```text
-Select top N stocks ranked by factor percentile
-and assign equal weights.
-```
-
-This output becomes the unified input for:
-
-- backtesting;
-- QMT execution.
-
----
-
-# 10. Backtest Layer
-
-The backtest system simulates realistic account behavior instead of merely computing returns.
-
----
-
-## 10.1 Account
-
-Stores:
-
-- cash;
-- positions;
-- market value;
-- total equity;
-- NAV history.
-
----
-
-## 10.2 Broker
-
-Handles:
-
-- buy/sell execution;
-- cash updates;
-- position updates;
-- commissions;
-- stamp tax;
-- slippage.
-
----
-
-## 10.3 BacktestEngine
-
-Handles:
-
-- time iteration;
-- rebalancing;
-- broker interaction;
-- account updates;
-- NAV generation;
-- trade logs.
-
----
-
-# 11. Currently Implemented Trading Frictions
-
-Currently supported:
-
-- commissions;
-- stamp tax;
-- slippage;
-- cash constraints.
-
-Planned future additions:
-
-- suspension handling;
-- price limit handling;
-- T+1 restrictions;
-- lot size constraints;
-- volume constraints;
-- rebalance frequency control;
-- industry neutrality;
-- risk exposure constraints.
-
----
-
-# 12. Current Working Pipeline
-
-The following full pipeline has already been successfully implemented:
-
-```text
-DataManager
-↓
-MomentumFactor
-↓
-FactorProcessor
-↓
-TopNEqualWeightStrategy
-↓
-BacktestEngine
-↓
-Equity Curve / Trade Log
-```
-
-The project already functions as an initial quantitative trading system prototype.
-
----
-
-# 13. QMT Direction
-
-The final goal is to generate outputs executable in broker QMT environments.
-
-Target architecture:
-
-```text
-Local Research System
-↓
-Generate target_positions
-↓
-QMT Adapter reads target_positions
-↓
-Query live account positions
-↓
-Compute rebalance differences
-↓
-Generate orders
-↓
-QMT executes trades
-```
-
-Core principle:
-
-```text
-Research System ≠ Execution System
-```
-
-Research components:
-
-- factor research;
-- strategy logic;
-- portfolio construction;
-- backtesting;
-
-should remain outside QMT.
-
-QMT should only handle:
-
-- account querying;
-- position querying;
-- order generation;
-- order execution.
-
----
-
-# 14. Future Development Roadmap
-
-## 14.1 Universe Filtering
-
-Planned module:
-
-```text
-src/universe/
-```
-
-Filters:
-
-- ST stocks;
-- Beijing Exchange stocks;
-- newly listed stocks;
-- suspended stocks;
-- illiquid stocks;
-- penny stocks.
-
----
-
-## 14.2 Rebalance Frequency Control
-
-Support:
-
-- daily rebalance;
-- weekly rebalance;
-- monthly rebalance.
-
----
-
-## 14.3 Performance Analyzer
-
-Planned metrics:
-
-- annualized return;
-- annualized volatility;
-- Sharpe ratio;
-- maximum drawdown;
-- turnover;
-- excess return.
-
----
-
-## 14.4 Benchmarks
-
-Planned benchmarks:
-
-- CSI300;
-- CSI500;
-- CSI1000;
-- broad market benchmarks.
-
----
-
-## 14.5 Multi-Factor Models
-
-Planned support:
-
-- factor combination;
-- IC weighting;
-- rank IC weighting;
-- industry neutrality;
-- market-cap neutrality;
-- risk-constrained optimization.
-
----
-
-## 14.6 Additional Factors
-
-Planned factor categories:
-
-- valuation;
-- quality;
-- growth;
-- low volatility;
-- turnover;
-- earnings quality;
-- NLP/text factors;
-- academic paper replications.
-
----
-
-## 14.7 QMT Execution Layer
-
-Planned features:
-
-- target position synchronization;
-- rebalance computation;
-- auto order generation;
-- paper trading;
-- live trading.
-
----
-
-# 15. Codex Agent Development Rules
-
-Codex Agent will be continuously used to extend this project.
-
-Codex modifications must follow these rules:
-
-1. Do NOT write one-off scripts;
-2. Do NOT bypass existing architecture;
-3. New factors must inherit `BaseFactor`;
-4. New strategies must inherit `BaseStrategy`;
-5. Reuse logic between backtest and live trading whenever possible;
-6. Do NOT directly modify parquet files;
-7. Do NOT commit tokens or databases;
-8. Preserve meaningful comments and documentation;
-9. All execution outputs should revolve around `target_positions`.
-
-Recommended factor development flow:
-
-```text
-Read factor definition
-↓
-Identify required datasets
-↓
-Check DataManager support
-↓
-Implement Factor
-↓
-Register Factor
-↓
-Process Factor
-↓
-Attach Strategy
-↓
-Run Backtest
-↓
-Validate Results
-```
-
-Recommended strategy development flow:
-
-```text
-Define strategy input
-↓
-Define rebalance frequency
-↓
-Define selection logic
-↓
-Define weighting scheme
-↓
-Implement Strategy
-↓
-Generate target_positions
-↓
-Run Backtest
-↓
-Analyze turnover and NAV
-```
-
----
-
-# 16. Git Management Rules
-
-Git manages CODE only.
-
-Do NOT commit:
+Git should manage source code and documentation only. Do not commit:
 
 ```text
 data/raw/**/*.parquet
@@ -690,28 +176,3 @@ logs/
 tokens
 real account information
 ```
-
-Commit:
-
-```text
-src/
-config/
-README.md
-requirements.txt
-.gitignore
-```
-
----
-
-# 17. Final Goal
-
-The final goal is NOT a one-off factor experiment.
-
-The goal is to build a long-term extensible A-share quantitative research and trading system capable of:
-
-- continuously reproducing academic factors;
-- researching new strategies;
-- simulating realistic trading;
-- modeling transaction frictions;
-- generating QMT-compatible outputs;
-- supporting both paper trading and live trading.

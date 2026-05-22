@@ -4,6 +4,8 @@ import pandas as pd
 
 from src.backtest.account import Account
 from src.backtest.broker import Broker
+from src.backtest.order_utils import round_buy_shares, round_sell_shares
+from src.backtest.rebalance import filter_target_positions_by_rebalance
 from src.backtest.trading_rules import can_buy, can_sell
 from src.datahub.data_manager import DataManager
 
@@ -29,10 +31,12 @@ class BacktestEngine:
     def __init__(
         self,
         dm: DataManager,
-        initial_cash: float = 1_000_000
+        initial_cash: float = 1_000_000,
+        rebalance_frequency: str = "daily"
     ):
 
         self.dm = dm
+        self.rebalance_frequency = rebalance_frequency
 
         self.account = Account(
             initial_cash=initial_cash
@@ -99,6 +103,33 @@ class BacktestEngine:
             "side": side,
             "reason": reason
         })
+
+    def _cap_buy_shares_by_cash(
+        self,
+        shares: int,
+        price: float
+    ) -> int:
+        """
+        根据当前可用现金限制买入股数，并保持 A 股整手约束。
+        """
+
+        if shares <= 0 or price <= 0:
+            return 0
+
+        exec_price = price * (1 + self.broker.slippage_rate)
+        shares = int(shares)
+
+        while shares > 0:
+            trade_value = shares * exec_price
+            commission = self.broker._calc_commission(trade_value)
+            cash_needed = trade_value + commission
+
+            if cash_needed <= self.account.cash:
+                return shares
+
+            shares -= 100
+
+        return 0
 
     def _prepare_price_data(
         self,
@@ -182,7 +213,15 @@ class BacktestEngine:
         if price_df.empty:
             return pd.DataFrame()
 
-        targets = target_positions.copy()
+        targets = filter_target_positions_by_rebalance(
+            target_positions=target_positions,
+            frequency=self.rebalance_frequency
+        )
+
+        if targets.empty:
+            return pd.DataFrame()
+
+        targets = targets.copy()
         targets["signal_date"] = pd.to_datetime(
             targets["trade_date"]
         )
@@ -280,12 +319,28 @@ class BacktestEngine:
                     ts_code
                 )
 
+                shares_to_sell = round_sell_shares(
+                    raw_shares_to_sell=shares,
+                    current_shares=shares,
+                    allow_full_exit=True
+                )
+
+                if shares_to_sell <= 0:
+                    self._record_restriction(
+                        signal_date=signal_date,
+                        execute_date=execute_date,
+                        ts_code=ts_code,
+                        side="sell",
+                        reason="卖出股数不足一手且非清仓，未下单"
+                    )
+                    continue
+
                 self.broker.execute_order(
                     account=self.account,
                     trade_date=execute_date,
                     ts_code=ts_code,
                     side="sell",
-                    shares=shares,
+                    shares=shares_to_sell,
                     price=open_map[ts_code]
                 )
 
@@ -328,7 +383,7 @@ class BacktestEngine:
                     target_value - current_value
                 )
 
-                # 目标买卖股数。第一版暂不强制按 100 股手数取整。
+                # 目标买卖股数，实际下单前按 A 股 100 股整数交易规则取整。
                 target_shares = (
                     diff_value // open_price
                 )
@@ -347,12 +402,28 @@ class BacktestEngine:
                         )
                         continue
 
+                    buy_shares = round_buy_shares(target_shares)
+                    buy_shares = self._cap_buy_shares_by_cash(
+                        shares=buy_shares,
+                        price=open_price
+                    )
+
+                    if buy_shares <= 0:
+                        self._record_restriction(
+                            signal_date=signal_date,
+                            execute_date=execute_date,
+                            ts_code=ts_code,
+                            side="buy",
+                            reason="买入股数不足一手，未下单"
+                        )
+                        continue
+
                     self.broker.execute_order(
                         account=self.account,
                         trade_date=execute_date,
                         ts_code=ts_code,
                         side="buy",
-                        shares=target_shares,
+                        shares=buy_shares,
                         price=open_price
                     )
 
@@ -368,12 +439,28 @@ class BacktestEngine:
                         )
                         continue
 
+                    sell_shares = round_sell_shares(
+                        raw_shares_to_sell=abs(target_shares),
+                        current_shares=current_shares,
+                        allow_full_exit=True
+                    )
+
+                    if sell_shares <= 0:
+                        self._record_restriction(
+                            signal_date=signal_date,
+                            execute_date=execute_date,
+                            ts_code=ts_code,
+                            side="sell",
+                            reason="卖出股数不足一手且非清仓，未下单"
+                        )
+                        continue
+
                     self.broker.execute_order(
                         account=self.account,
                         trade_date=execute_date,
                         ts_code=ts_code,
                         side="sell",
-                        shares=abs(target_shares),
+                        shares=sell_shares,
                         price=open_price
                     )
 
