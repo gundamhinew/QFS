@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+This is only a demonstration script.
+
+The recommended production-style entry point is:
+python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+"""
+
 import sys
 from pathlib import Path
 

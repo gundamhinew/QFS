@@ -1,0 +1,31 @@
+strategy_name: momentum_top50_monthly
+
+data:
+  raw_root: "data/raw"
+
+backtest:
+  start: "2020-01-01"
+  end: "2020-12-31"
+  initial_cash: 1000000
+  rebalance_frequency: "monthly"
+
+universe:
+  min_list_days: 120
+  min_close: 2.0
+  min_amount_yuan: 30000000
+
+factor:
+  type: "momentum"
+  params:
+    lookback: 60
+  direction: "positive"
+  min_count: 50
+
+portfolio:
+  type: "top_n_equal_weight"
+  params:
+    top_n: 50
+
+output:
+  print_detail: true
+  save_result: false

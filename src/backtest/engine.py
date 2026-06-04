@@ -14,18 +14,12 @@ class BacktestEngine:
     """
     回测引擎。
 
-    作用：
+    职责：
     1. 按交易日推进回测；
-    2. 将信号日期映射到下一交易日执行，避免 T 日收盘信号 T 日成交；
-    3. 调用 Broker 执行交易；
-    4. 更新 Account；
-    5. 记录净值曲线和交易限制日志。
-
-    当前版本：
-    - T 日 target_positions 只代表信号日期；
-    - T+1 日 open 成交；
-    - T+1 日 close 估值；
-    - 在引擎层处理涨跌停买卖限制，Broker 不依赖行情数据源。
+    2. 将 T 日信号映射到 T+1 交易日 open 执行；
+    3. 只在调仓执行日交易；
+    4. 每个交易日 close 后记录账户快照；
+    5. 在引擎层处理交易限制，Broker 只负责执行订单和更新账户。
     """
 
     def __init__(
@@ -44,7 +38,7 @@ class BacktestEngine:
 
         self.broker = Broker()
 
-        # 记录因为涨跌停、缺行情等原因没有成交的指令。
+        # 记录因为涨跌停、缺行情、整手约束等原因没有成交的指令。
         self.restriction_logs: list[dict] = []
 
     @staticmethod
@@ -53,9 +47,7 @@ class BacktestEngine:
         trade_dates: list[pd.Timestamp]
     ) -> pd.Timestamp | None:
         """
-        为信号日期寻找下一个可交易日。
-
-        注意这里必须严格大于 signal_date，不能把信号日期和执行日期混用。
+        为信号日期寻找下一个交易日。
         """
 
         for trade_date in trade_dates:
@@ -92,8 +84,6 @@ class BacktestEngine:
     ):
         """
         记录未成交原因。
-
-        第一版单独维护 restriction_log，不污染 Broker 的真实成交记录。
         """
 
         self.restriction_logs.append({
@@ -138,8 +128,6 @@ class BacktestEngine:
     ) -> pd.DataFrame:
         """
         读取并补充回测所需行情数据。
-
-        行情数据提供交易日序列、open 成交价、close 估值价以及涨跌停判断字段。
         """
 
         price_df = self.dm.get_daily_price(
@@ -156,7 +144,7 @@ class BacktestEngine:
             price_df["trade_date"]
         )
 
-        # 尽量补充 name、market 字段，供涨跌停规则识别 ST、创业板、科创板。
+        # 补充股票基础信息，供涨跌停规则识别 ST、创业板、科创板等。
         stock_basic = self.dm.get_stock_basic(active_only=False)
 
         if not stock_basic.empty:
@@ -179,6 +167,244 @@ class BacktestEngine:
             ["trade_date", "ts_code"]
         ).reset_index(drop=True)
 
+    def _build_execute_plan(
+        self,
+        targets: pd.DataFrame,
+        trade_dates: list[pd.Timestamp]
+    ) -> dict[pd.Timestamp, list[tuple[pd.Timestamp, pd.DataFrame]]]:
+        """
+        构建 execute_date -> [(signal_date, target_df)] 的调仓计划。
+        """
+
+        execute_plan: dict[pd.Timestamp, list[tuple[pd.Timestamp, pd.DataFrame]]] = {}
+
+        signal_dates = sorted(
+            targets["signal_date"].dropna().unique()
+        )
+
+        for signal_date in signal_dates:
+            execute_date = self._find_next_trade_date(
+                signal_date=signal_date,
+                trade_dates=trade_dates
+            )
+
+            if execute_date is None:
+                continue
+
+            today_target = targets[
+                targets["signal_date"] == signal_date
+            ].copy()
+
+            execute_plan.setdefault(
+                execute_date,
+                []
+            ).append((signal_date, today_target))
+
+        return execute_plan
+
+    def _execute_rebalance(
+        self,
+        signal_date: pd.Timestamp,
+        execute_date: pd.Timestamp,
+        today_target: pd.DataFrame,
+        execute_price: pd.DataFrame
+    ):
+        """
+        在调仓执行日按 open 价格执行目标组合调整。
+        """
+
+        open_map = self._build_price_map(
+            execute_price,
+            price_col="open"
+        )
+
+        row_map = {
+            row["ts_code"]: row
+            for _, row in execute_price.iterrows()
+        }
+
+        # 使用执行日 open 估算调仓前总资产，保持成交价和 sizing 口径一致。
+        total_equity = self.account.get_total_equity(
+            price_map=open_map
+        )
+
+        current_codes = set(
+            self.account.positions.keys()
+        )
+
+        target_codes = set(
+            today_target["ts_code"]
+        )
+
+        # 第一步：卖出不在目标组合里的股票。
+        sell_codes = current_codes - target_codes
+
+        for ts_code in sell_codes:
+            if ts_code not in open_map:
+                self._record_restriction(
+                    signal_date=signal_date,
+                    execute_date=execute_date,
+                    ts_code=ts_code,
+                    side="sell",
+                    reason="execute_date 缺少 open 行情，无法卖出"
+                )
+                continue
+
+            price_row = row_map[ts_code]
+
+            if not can_sell(price_row):
+                self._record_restriction(
+                    signal_date=signal_date,
+                    execute_date=execute_date,
+                    ts_code=ts_code,
+                    side="sell",
+                    reason="跌停限制，无法卖出"
+                )
+                continue
+
+            shares = self.account.get_position_shares(
+                ts_code
+            )
+
+            shares_to_sell = round_sell_shares(
+                raw_shares_to_sell=shares,
+                current_shares=shares,
+                allow_full_exit=True
+            )
+
+            if shares_to_sell <= 0:
+                self._record_restriction(
+                    signal_date=signal_date,
+                    execute_date=execute_date,
+                    ts_code=ts_code,
+                    side="sell",
+                    reason="卖出股数不足一手且非清仓，未下单"
+                )
+                continue
+
+            self.broker.execute_order(
+                account=self.account,
+                trade_date=execute_date,
+                ts_code=ts_code,
+                side="sell",
+                shares=shares_to_sell,
+                price=open_map[ts_code]
+            )
+
+        # 第二步：调整目标组合内股票。
+        for _, row in today_target.iterrows():
+            ts_code = row["ts_code"]
+
+            if ts_code not in open_map:
+                self._record_restriction(
+                    signal_date=signal_date,
+                    execute_date=execute_date,
+                    ts_code=ts_code,
+                    side="buy",
+                    reason="execute_date 缺少 open 行情，无法调仓"
+                )
+                continue
+
+            target_weight = row["target_weight"]
+            open_price = open_map[ts_code]
+
+            target_value = (
+                total_equity * target_weight
+            )
+
+            current_shares = (
+                self.account.get_position_shares(
+                    ts_code
+                )
+            )
+
+            current_value = (
+                current_shares * open_price
+            )
+
+            diff_value = (
+                target_value - current_value
+            )
+
+            # 目标买卖股数，实际下单前按 A 股 100 股整数交易规则取整。
+            target_shares = (
+                diff_value // open_price
+            )
+
+            price_row = row_map[ts_code]
+
+            if target_shares > 0:
+                if not can_buy(price_row):
+                    self._record_restriction(
+                        signal_date=signal_date,
+                        execute_date=execute_date,
+                        ts_code=ts_code,
+                        side="buy",
+                        reason="涨停限制，无法买入"
+                    )
+                    continue
+
+                buy_shares = round_buy_shares(target_shares)
+                buy_shares = self._cap_buy_shares_by_cash(
+                    shares=buy_shares,
+                    price=open_price
+                )
+
+                if buy_shares <= 0:
+                    self._record_restriction(
+                        signal_date=signal_date,
+                        execute_date=execute_date,
+                        ts_code=ts_code,
+                        side="buy",
+                        reason="买入股数不足一手，未下单"
+                    )
+                    continue
+
+                self.broker.execute_order(
+                    account=self.account,
+                    trade_date=execute_date,
+                    ts_code=ts_code,
+                    side="buy",
+                    shares=buy_shares,
+                    price=open_price
+                )
+
+            elif target_shares < 0:
+                if not can_sell(price_row):
+                    self._record_restriction(
+                        signal_date=signal_date,
+                        execute_date=execute_date,
+                        ts_code=ts_code,
+                        side="sell",
+                        reason="跌停限制，无法卖出"
+                    )
+                    continue
+
+                sell_shares = round_sell_shares(
+                    raw_shares_to_sell=abs(target_shares),
+                    current_shares=current_shares,
+                    allow_full_exit=True
+                )
+
+                if sell_shares <= 0:
+                    self._record_restriction(
+                        signal_date=signal_date,
+                        execute_date=execute_date,
+                        ts_code=ts_code,
+                        side="sell",
+                        reason="卖出股数不足一手且非清仓，未下单"
+                    )
+                    continue
+
+                self.broker.execute_order(
+                    account=self.account,
+                    trade_date=execute_date,
+                    ts_code=ts_code,
+                    side="sell",
+                    shares=sell_shares,
+                    price=open_price
+                )
+
     def run_backtest(
         self,
         target_positions: pd.DataFrame,
@@ -188,18 +414,8 @@ class BacktestEngine:
         """
         运行回测。
 
-        参数
-        ----
-        target_positions:
-            策略生成的目标持仓。trade_date 表示信号日期，不是成交日期。
-
-        start, end:
-            回测区间。
-
-        返回
-        ----
-        equity_curve:
-            净值曲线，trade_date 记录实际执行日期。
+        `target_positions.trade_date` 表示信号日期，不是成交日期。
+        调仓频率只控制哪些 signal_date 生效；估值仍然每天记录。
         """
 
         if target_positions.empty:
@@ -226,250 +442,41 @@ class BacktestEngine:
             targets["trade_date"]
         )
 
-        # 交易日序列必须从行情数据获得，而不是只依赖信号日期。
+        # 交易日序列必须来自行情数据，而不是只依赖信号日期。
         trade_dates = sorted(
             price_df["trade_date"].dropna().unique()
         )
 
-        signal_dates = sorted(
-            targets["signal_date"].dropna().unique()
+        execute_plan = self._build_execute_plan(
+            targets=targets,
+            trade_dates=trade_dates
         )
 
-        for signal_date in signal_dates:
-
-            execute_date = self._find_next_trade_date(
-                signal_date=signal_date,
-                trade_dates=trade_dates
-            )
-
-            if execute_date is None:
-                continue
-
-            # 信号日目标组合。
-            today_target = targets[
-                targets["signal_date"] == signal_date
+        # 主循环遍历所有交易日：只有调仓执行日交易，但每天都用 close 估值。
+        for trade_date in trade_dates:
+            daily_price = price_df[
+                price_df["trade_date"] == trade_date
             ].copy()
 
-            # 执行日行情。open 用于成交，close 用于收盘估值。
-            execute_price = price_df[
-                price_df["trade_date"] == execute_date
-            ].copy()
-
-            if execute_price.empty:
+            if daily_price.empty:
                 continue
 
-            open_map = self._build_price_map(
-                execute_price,
-                price_col="open"
-            )
+            if trade_date in execute_plan:
+                for signal_date, today_target in execute_plan[trade_date]:
+                    self._execute_rebalance(
+                        signal_date=signal_date,
+                        execute_date=trade_date,
+                        today_target=today_target,
+                        execute_price=daily_price
+                    )
+
             close_map = self._build_price_map(
-                execute_price,
+                daily_price,
                 price_col="close"
             )
 
-            row_map = {
-                row["ts_code"]: row
-                for _, row in execute_price.iterrows()
-            }
-
-            # 使用执行日 open 估算调仓前总资产，保持成交价和 sizing 口径一致。
-            total_equity = self.account.get_total_equity(
-                price_map=open_map
-            )
-
-            current_codes = set(
-                self.account.positions.keys()
-            )
-
-            target_codes = set(
-                today_target["ts_code"]
-            )
-
-            # ======================
-            # 第一步：卖出不在目标组合里的股票
-            # ======================
-
-            sell_codes = current_codes - target_codes
-
-            for ts_code in sell_codes:
-
-                if ts_code not in open_map:
-                    self._record_restriction(
-                        signal_date=signal_date,
-                        execute_date=execute_date,
-                        ts_code=ts_code,
-                        side="sell",
-                        reason="execute_date 缺少 open 行情，无法卖出"
-                    )
-                    continue
-
-                price_row = row_map[ts_code]
-
-                if not can_sell(price_row):
-                    self._record_restriction(
-                        signal_date=signal_date,
-                        execute_date=execute_date,
-                        ts_code=ts_code,
-                        side="sell",
-                        reason="跌停限制，无法卖出"
-                    )
-                    continue
-
-                shares = self.account.get_position_shares(
-                    ts_code
-                )
-
-                shares_to_sell = round_sell_shares(
-                    raw_shares_to_sell=shares,
-                    current_shares=shares,
-                    allow_full_exit=True
-                )
-
-                if shares_to_sell <= 0:
-                    self._record_restriction(
-                        signal_date=signal_date,
-                        execute_date=execute_date,
-                        ts_code=ts_code,
-                        side="sell",
-                        reason="卖出股数不足一手且非清仓，未下单"
-                    )
-                    continue
-
-                self.broker.execute_order(
-                    account=self.account,
-                    trade_date=execute_date,
-                    ts_code=ts_code,
-                    side="sell",
-                    shares=shares_to_sell,
-                    price=open_map[ts_code]
-                )
-
-            # ======================
-            # 第二步：调整目标组合
-            # ======================
-
-            for _, row in today_target.iterrows():
-
-                ts_code = row["ts_code"]
-
-                if ts_code not in open_map:
-                    self._record_restriction(
-                        signal_date=signal_date,
-                        execute_date=execute_date,
-                        ts_code=ts_code,
-                        side="buy",
-                        reason="execute_date 缺少 open 行情，无法调仓"
-                    )
-                    continue
-
-                target_weight = row["target_weight"]
-                open_price = open_map[ts_code]
-
-                target_value = (
-                    total_equity * target_weight
-                )
-
-                current_shares = (
-                    self.account.get_position_shares(
-                        ts_code
-                    )
-                )
-
-                current_value = (
-                    current_shares * open_price
-                )
-
-                diff_value = (
-                    target_value - current_value
-                )
-
-                # 目标买卖股数，实际下单前按 A 股 100 股整数交易规则取整。
-                target_shares = (
-                    diff_value // open_price
-                )
-
-                price_row = row_map[ts_code]
-
-                if target_shares > 0:
-
-                    if not can_buy(price_row):
-                        self._record_restriction(
-                            signal_date=signal_date,
-                            execute_date=execute_date,
-                            ts_code=ts_code,
-                            side="buy",
-                            reason="涨停限制，无法买入"
-                        )
-                        continue
-
-                    buy_shares = round_buy_shares(target_shares)
-                    buy_shares = self._cap_buy_shares_by_cash(
-                        shares=buy_shares,
-                        price=open_price
-                    )
-
-                    if buy_shares <= 0:
-                        self._record_restriction(
-                            signal_date=signal_date,
-                            execute_date=execute_date,
-                            ts_code=ts_code,
-                            side="buy",
-                            reason="买入股数不足一手，未下单"
-                        )
-                        continue
-
-                    self.broker.execute_order(
-                        account=self.account,
-                        trade_date=execute_date,
-                        ts_code=ts_code,
-                        side="buy",
-                        shares=buy_shares,
-                        price=open_price
-                    )
-
-                elif target_shares < 0:
-
-                    if not can_sell(price_row):
-                        self._record_restriction(
-                            signal_date=signal_date,
-                            execute_date=execute_date,
-                            ts_code=ts_code,
-                            side="sell",
-                            reason="跌停限制，无法卖出"
-                        )
-                        continue
-
-                    sell_shares = round_sell_shares(
-                        raw_shares_to_sell=abs(target_shares),
-                        current_shares=current_shares,
-                        allow_full_exit=True
-                    )
-
-                    if sell_shares <= 0:
-                        self._record_restriction(
-                            signal_date=signal_date,
-                            execute_date=execute_date,
-                            ts_code=ts_code,
-                            side="sell",
-                            reason="卖出股数不足一手且非清仓，未下单"
-                        )
-                        continue
-
-                    self.broker.execute_order(
-                        account=self.account,
-                        trade_date=execute_date,
-                        ts_code=ts_code,
-                        side="sell",
-                        shares=sell_shares,
-                        price=open_price
-                    )
-
-            # ======================
-            # 第三步：执行日收盘后记录账户状态
-            # ======================
-
             self.account.record_daily_snapshot(
-                trade_date=execute_date,
+                trade_date=trade_date,
                 price_map=close_map
             )
 
