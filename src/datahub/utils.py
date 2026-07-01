@@ -1,13 +1,32 @@
 from __future__ import annotations
 
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 import yaml
 
 
-def load_settings(path: str = "config/settings.yaml") -> dict:
-    with open(path, "r", encoding="utf-8") as f:
+def load_settings(path: str = "configs/datahub/settings.yaml") -> dict:
+    settings_path = Path(path)
+    legacy_path = Path("config/settings.yaml")
+
+    if not settings_path.exists() and path == "configs/datahub/settings.yaml" and legacy_path.exists():
+        settings_path = legacy_path
+
+    with settings_path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def resolve_tushare_token(settings: dict, token_override: str | None = None) -> str:
+    token = token_override or settings.get("tushare", {}).get("token", "")
+    token = str(token).strip()
+
+    if not token or (token.startswith("{") and token.endswith("}")):
+        raise ValueError(
+            "Tushare token is required. Pass --token YOUR_TOKEN, "
+            "or set tushare.token in configs/datahub/settings.yaml."
+        )
+
+    return token
 
 
 def ensure_dir(path: str | Path) -> Path:

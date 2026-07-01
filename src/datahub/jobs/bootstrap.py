@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.datahub.utils import load_settings, now_str
+from src.datahub.utils import load_settings, now_str, resolve_tushare_token
 from src.datahub.client import TushareClient
 from src.datahub.storage import ParquetStore
 from src.datahub.meta_db import MetaDB
@@ -10,10 +10,10 @@ from src.datahub.downloaders.stock_basic import fetch_stock_basic
 from src.datahub.downloaders.trade_calendar import fetch_trade_calendar
 
 
-def run_bootstrap():
+def run_bootstrap(token_override: str | None = None):
     settings = load_settings()
     client = TushareClient(
-        token=settings["tushare"]["token"],
+        token=resolve_tushare_token(settings, token_override),
         sleep_seconds=settings["update"]["sleep_seconds"]
     )
     store = ParquetStore(settings["paths"]["raw_root"])
