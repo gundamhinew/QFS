@@ -37,10 +37,10 @@ Strategy configuration files live in:
 configs/strategies/
 ```
 
-Datahub settings live in:
+Datahub defaults live in:
 
 ```text
-configs/datahub/settings.yaml
+configs/datahub.yaml
 ```
 
 The current example config is:
@@ -144,8 +144,7 @@ Trading rules such as limit-up / limit-down checks, 100-share lot-size handling,
 ```text
 quant_factor_selection/
 |-- configs/
-|   |-- datahub/
-|   |   `-- settings.yaml
+|   |-- datahub.yaml
 |   `-- strategies/
 |       `-- momentum_top50_monthly.yaml
 |-- data/
@@ -170,22 +169,28 @@ quant_factor_selection/
 
 ## Data Update Commands
 
-Bootstrap base data:
+Bootstrap base data and trade calendar:
 
 ```bash
-python -m src.main bootstrap --token YOUR_TUSHARE_TOKEN
+python -m src.main bootstrap --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
 ```
 
-Run daily market updates:
+Sync daily market data for an explicit date range:
 
 ```bash
-python -m src.main daily_update --token YOUR_TUSHARE_TOKEN
+python -m src.main sync_daily_range --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
 ```
 
-Backfill historical daily market data:
+Run normal incremental daily market updates:
 
 ```bash
-python -m src.main backfill_daily --start 20160101 --end 20171231 --token YOUR_TUSHARE_TOKEN
+python -m src.main daily_update --end 20260702 --token YOUR_TUSHARE_TOKEN
+```
+
+Update financial indicators:
+
+```bash
+python -m src.main financial_update --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
 ```
 
 ## Not Yet Implemented

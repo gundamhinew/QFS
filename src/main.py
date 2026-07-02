@@ -35,11 +35,24 @@ def main():
     args = parser.parse_args()
 
     if args.job == "bootstrap":
-        run_bootstrap(token_override=args.tushare_token)
+        run_bootstrap(
+            token_override=args.tushare_token,
+            start_date=args.start,
+            end_date=args.end
+        )
     elif args.job == "daily_update":
-        run_daily_updates(token_override=args.tushare_token)
+        run_daily_updates(
+            token_override=args.tushare_token,
+            start_date=args.start,
+            end_date=args.end
+        )
     elif args.job == "financial_update":
-        run_financial_update(limit=args.limit, token_override=args.tushare_token)
+        run_financial_update(
+            limit=args.limit,
+            token_override=args.tushare_token,
+            start_date=args.start,
+            end_date=args.end
+        )
     elif args.job == "backfill_daily":
         if not args.start or not args.end:
             parser.error("backfill_daily requires --start YYYYMMDD and --end YYYYMMDD")

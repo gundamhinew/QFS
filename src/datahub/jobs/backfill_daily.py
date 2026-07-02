@@ -10,18 +10,15 @@ from src.datahub.downloaders.daily_basic import fetch_daily_basic_by_trade_date
 from src.datahub.downloaders.daily_price import fetch_daily_price_by_trade_date
 from src.datahub.meta_db import MetaDB
 from src.datahub.storage import ParquetStore
-from src.datahub.utils import load_settings, now_str, resolve_tushare_token
+from src.datahub.utils import (
+    load_datahub_config,
+    now_str,
+    resolve_tushare_token,
+    validate_yyyymmdd,
+)
 
 
 DAILY_TABLE_GROUP = "daily_price,adj_factor,daily_basic"
-
-
-def _validate_yyyymmdd(value: str, name: str) -> str:
-    try:
-        pd.to_datetime(value, format="%Y%m%d")
-    except ValueError as exc:
-        raise ValueError(f"{name} must be YYYYMMDD, got {value!r}") from exc
-    return value
 
 
 def _get_open_trade_dates(raw_root: str, start_date: str, end_date: str) -> list[str]:
@@ -61,15 +58,15 @@ def run_daily_range_job(
     token_override: str | None = None,
     job_name: str = "sync_daily_range"
 ) -> None:
-    start_date = _validate_yyyymmdd(start_date, "start")
-    end_date = _validate_yyyymmdd(end_date, "end")
+    start_date = validate_yyyymmdd(start_date, "start")
+    end_date = validate_yyyymmdd(end_date, "end")
     if start_date > end_date:
         raise ValueError(f"start must be <= end, got {start_date} > {end_date}")
 
-    settings = load_settings()
+    settings = load_datahub_config()
     client = TushareClient(
         token=resolve_tushare_token(settings, token_override),
-        sleep_seconds=settings["update"]["sleep_seconds"]
+        sleep_seconds=settings["tushare"]["sleep_seconds"]
     )
     store = ParquetStore(settings["paths"]["raw_root"])
     meta = MetaDB(settings["paths"]["meta_db"])

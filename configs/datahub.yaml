@@ -1,0 +1,19 @@
+tushare:
+  token: "{TUSHARE_TOKEN}"
+  sleep_seconds: 0.2
+
+paths:
+  raw_root: "./data/raw"
+  factor_root: "./data/factor"
+  meta_db: "./data/meta/datahub.db"
+
+calendar:
+  exchange: "SSE"
+  default_start: "20160101"
+
+daily:
+  default_start: "20160101"
+
+financial:
+  default_start:
+  default_end:

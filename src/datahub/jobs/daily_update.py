@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.datahub.utils import load_settings, now_str, resolve_tushare_token
+from src.datahub.utils import (
+    load_datahub_config,
+    now_str,
+    resolve_tushare_token,
+    validate_yyyymmdd,
+)
 from src.datahub.client import TushareClient
 from src.datahub.storage import ParquetStore
 from src.datahub.meta_db import MetaDB
@@ -11,19 +16,36 @@ from src.datahub.downloaders.adj_factor import fetch_adj_factor_by_trade_date
 from src.datahub.downloaders.daily_basic import fetch_daily_basic_by_trade_date
 
 
-def _get_open_trade_dates(raw_root: str, start_date: str) -> list[str]:
+def _get_open_trade_dates(
+    raw_root: str,
+    start_date: str,
+    end_date: str | None = None
+) -> list[str]:
     cal_path = f"{raw_root}/trade_calendar/trade_calendar.parquet"
     cal = pd.read_parquet(cal_path)
     cal["cal_date"] = cal["cal_date"].astype(str)
     mask = (cal["is_open"] == 1) & (cal["cal_date"] >= start_date)
+    if end_date is not None:
+        mask = mask & (cal["cal_date"] <= end_date)
     return cal.loc[mask, "cal_date"].sort_values().tolist()
 
 
-def run_daily_updates(token_override: str | None = None):
-    settings = load_settings()
+def run_daily_updates(
+    token_override: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None
+):
+    settings = load_datahub_config()
+    if start_date is not None:
+        start_date = validate_yyyymmdd(start_date, "start")
+    if end_date is not None:
+        end_date = validate_yyyymmdd(end_date, "end")
+    if start_date and end_date and start_date > end_date:
+        raise ValueError(f"start must be <= end, got {start_date} > {end_date}")
+
     client = TushareClient(
         token=resolve_tushare_token(settings, token_override),
-        sleep_seconds=settings["update"]["sleep_seconds"]
+        sleep_seconds=settings["tushare"]["sleep_seconds"]
     )
     store = ParquetStore(settings["paths"]["raw_root"])
     meta = MetaDB(settings["paths"]["meta_db"])
@@ -37,16 +59,19 @@ def run_daily_updates(token_override: str | None = None):
     for job_name, table_name, fetcher in jobs:
         last_date = meta.get_last_trade_date(job_name)
 
-        if last_date is None:
-            start_date = settings["update"]["start_date"]
+        if start_date is not None:
+            job_start_date = start_date
+        elif last_date is None:
+            job_start_date = settings["daily"]["default_start"]
         else:
-            start_date = (
+            job_start_date = (
                 pd.to_datetime(last_date) + pd.Timedelta(days=1)
             ).strftime("%Y%m%d")
 
         trade_dates = _get_open_trade_dates(
             settings["paths"]["raw_root"],
-            start_date
+            job_start_date,
+            end_date
         )
 
         if not trade_dates:

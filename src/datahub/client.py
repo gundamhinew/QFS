@@ -38,7 +38,18 @@ class TushareClient:
         self._sleep()
         return df
 
-    def fina_indicator(self, ts_code: str, fields: str):
-        df = self.pro.fina_indicator(ts_code=ts_code, fields=fields)
+    def fina_indicator(
+        self,
+        ts_code: str,
+        fields: str,
+        start_date: str | None = None,
+        end_date: str | None = None
+    ):
+        params = {"ts_code": ts_code, "fields": fields}
+        if start_date is not None:
+            params["start_date"] = start_date
+        if end_date is not None:
+            params["end_date"] = end_date
+        df = self.pro.fina_indicator(**params)
         self._sleep()
         return df

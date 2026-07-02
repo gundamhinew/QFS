@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-import pandas as pd
-
-from src.datahub.utils import load_settings, now_str, resolve_tushare_token
+from src.datahub.utils import (
+    load_datahub_config,
+    now_str,
+    resolve_tushare_token,
+    today_yyyymmdd,
+    validate_yyyymmdd,
+)
 from src.datahub.client import TushareClient
 from src.datahub.storage import ParquetStore
 from src.datahub.meta_db import MetaDB
@@ -10,11 +14,23 @@ from src.datahub.downloaders.stock_basic import fetch_stock_basic
 from src.datahub.downloaders.trade_calendar import fetch_trade_calendar
 
 
-def run_bootstrap(token_override: str | None = None):
-    settings = load_settings()
+def run_bootstrap(
+    token_override: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None
+):
+    settings = load_datahub_config()
+    start_date = validate_yyyymmdd(
+        start_date or settings["calendar"]["default_start"],
+        "start"
+    )
+    end_date = validate_yyyymmdd(end_date or today_yyyymmdd(), "end")
+    if start_date > end_date:
+        raise ValueError(f"start must be <= end, got {start_date} > {end_date}")
+
     client = TushareClient(
         token=resolve_tushare_token(settings, token_override),
-        sleep_seconds=settings["update"]["sleep_seconds"]
+        sleep_seconds=settings["tushare"]["sleep_seconds"]
     )
     store = ParquetStore(settings["paths"]["raw_root"])
     meta = MetaDB(settings["paths"]["meta_db"])
@@ -56,12 +72,9 @@ def run_bootstrap(token_override: str | None = None):
     )
 
     # trade_calendar
-    start_date = settings["update"]["start_date"]
-    end_date = pd.Timestamp.today().strftime("%Y%m%d")
-
     cal_df = fetch_trade_calendar(
         client,
-        exchange=settings["update"]["exchange"],
+        exchange=settings["calendar"]["exchange"],
         start_date=start_date,
         end_date=end_date
     )
