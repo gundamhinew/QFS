@@ -17,6 +17,10 @@ env/
 logs/
 *.log
 
+# Research artifacts and scratch files
+artifacts/
+scratch_*.py
+
 # OS
 .DS_Store
 Thumbs.db
@@ -24,12 +28,13 @@ Thumbs.db
 # Data files
 data/raw/**/*.parquet
 data/meta/*.db
+data/factor/
 data/factor/**/*.parquet
 
 # Keep folder structure
 !data/raw/.gitkeep
 !data/meta/.gitkeep
-!data/factor/.gitkeep
 
 # Config secrets
 config/local_settings.yaml
+token

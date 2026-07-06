@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.portfolio.top_n_equal_weight import TopNEqualWeightPortfolio
 from src.strategies.base import BaseStrategy
 
 
@@ -48,7 +49,6 @@ class TopNEqualWeightStrategy(BaseStrategy):
         if factor_df.empty:
             return pd.DataFrame()
 
-        top_n = self.params.get("top_n", 50)
         percentile_col = self.params.get(
             "percentile_col",
             "factor_percentile"
@@ -56,28 +56,28 @@ class TopNEqualWeightStrategy(BaseStrategy):
 
         df = factor_df.copy()
         df["trade_date"] = pd.to_datetime(df["trade_date"])
+        model_scores = df[
+            [
+                "trade_date",
+                "ts_code",
+                percentile_col,
+            ]
+        ].rename(columns={percentile_col: "model_score"})
+        model_scores["model_id"] = "legacy_single_factor"
 
-        # 每个交易日内，按因子百分位从高到低排序。
-        df = df.sort_values(
-            ["trade_date", percentile_col],
-            ascending=[True, False]
+        base_weights = TopNEqualWeightPortfolio().build(
+            model_scores=model_scores,
+            config={
+                "params": {
+                    "top_n": self.params.get("top_n", 50),
+                    "normalize_weights": True,
+                }
+            },
         )
 
-        # 每个交易日选前 N 只股票。
-        selected = (
-            df.groupby("trade_date")
-            .head(top_n)
-            .copy()
-        )
-
-        # 如果某天可选股票不足 top_n，则按实际选中数量等权。
-        selected_count = (
-            selected.groupby("trade_date")["ts_code"]
-            .transform("count")
-        )
-
-        selected["target_weight"] = 1.0 / selected_count
-
+        selected = base_weights.rename(
+            columns={"raw_target_weight": "target_weight"}
+        ).copy()
         selected["strategy_name"] = self.strategy_name
 
         target_positions = selected[

@@ -1,0 +1,31 @@
+schema_version: 2
+factor_id: momentum_60
+implementation: momentum
+version: 1
+status: tested
+metadata:
+  name: 60-day momentum
+  description: 60 trading day total-return momentum factor.
+  owner: ''
+  category: momentum
+data:
+  raw_root: data/raw
+period:
+  start: '2020-01-01'
+  end: '2020-12-31'
+universe:
+  min_list_days: 120
+  min_close: 2.0
+  min_amount_yuan: 30000000
+params:
+  lookback: 60
+preprocess:
+  direction: positive
+  winsorize: true
+  standardize: true
+evaluation:
+  enabled: false
+  note: Work package two only checks implementation and data quality.
+storage:
+  save_raw_factor: false
+  output_root: artifacts/factor_runs

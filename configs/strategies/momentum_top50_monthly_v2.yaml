@@ -1,0 +1,44 @@
+schema_version: 2
+strategy_id: momentum_top50_monthly_v2
+version: 1
+status: research
+
+data:
+  raw_root: "data/raw"
+
+period:
+  start: "2020-01-01"
+  end: "2020-12-31"
+
+model:
+  config: configs/models/momentum_single.yaml
+
+rebalance:
+  frequency: monthly
+
+portfolio:
+  type: top_n_equal_weight
+  params:
+    top_n: 50
+    max_single_weight: 0.1
+    minimum_score:
+    normalize_weights: true
+
+timing:
+  type: noop
+
+risk:
+  type: basic_weight_constraint
+  max_single_weight: 0.1
+  normalize_weights: true
+
+backtest:
+  initial_cash: 1000000
+
+execution_assumption:
+  signal_time: close
+  execute_time: next_open
+
+output:
+  output_root: artifacts/strategy_runs
+  save_result: true

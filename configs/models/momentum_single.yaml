@@ -1,0 +1,22 @@
+schema_version: 2
+model_id: momentum_single
+model_type: single_factor
+version: 1
+status: research
+
+factors:
+  - factor_id: momentum_60
+    alias: momentum_60
+    config: configs/factors/momentum_60.yaml
+
+alignment:
+  missing_policy: intersection
+  min_factor_count: 1
+
+evaluation:
+  allow_unapproved: true
+  forward_periods: [1, 5, 20]
+  quantiles: 5
+
+output:
+  output_root: artifacts/model_runs

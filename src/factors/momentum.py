@@ -3,10 +3,13 @@ from __future__ import annotations
 import pandas as pd
 
 from src.factors.base import BaseFactor
+from src.factors.registry import register_factor
 
 
+@register_factor("momentum")
 class MomentumFactor(BaseFactor):
 
+    factor_id = "momentum"
     factor_name = "momentum"
 
     def build(
