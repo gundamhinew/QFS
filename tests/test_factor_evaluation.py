@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.factor_lab.evaluator import FactorEvaluator
-from src.factor_lab.forward_returns import calculate_forward_returns
-from src.factor_lab.quantile_analysis import (
+from src.factors.evaluator import FactorEvaluator
+from src.factors.forward_returns import calculate_forward_returns
+from src.factors.quantile_analysis import (
     assign_quantiles,
     calculate_quantile_returns,
     calculate_quantile_turnover,

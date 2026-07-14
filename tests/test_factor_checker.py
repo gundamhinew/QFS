@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.factor_lab.checker import FAIL, WARNING, FactorChecker
-from src.runner.config_loader import load_factor_config
-from src.runner.factor_runner import run_factor_check_from_config
+from src.factors.checker import FAIL, WARNING, FactorChecker
+from src.core.config_loader import load_factor_config
+from src.factors.factor_runner import run_factor_check_from_config
 
 
 def _base_config() -> dict:

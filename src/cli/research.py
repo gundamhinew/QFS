@@ -1,21 +1,23 @@
+"""Command-line entry point for factor, model, and strategy research."""
+
 from __future__ import annotations
 
 import argparse
 import sys
 
-from src.factor_lab.catalog import FactorCatalog
-from src.factor_lab.scaffold import create_factor_template
-from src.runner.factor_runner import (
+from src.factors.catalog import FactorCatalog
+from src.factors.scaffold import create_factor_template
+from src.factors.factor_runner import (
     format_factor_evaluation_summary,
     format_factor_check_report,
     run_factor_evaluate_from_config,
     run_factor_check_from_config,
 )
-from src.runner.model_runner import (
+from src.alpha_models.model_runner import (
     format_model_evaluation_summary,
     run_model_evaluate_from_config,
 )
-from src.runner.strategy_runner import (
+from src.strategies.strategy_runner import (
     format_strategy_backtest_summary,
     run_strategy_backtest_from_config,
 )

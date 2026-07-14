@@ -78,7 +78,7 @@ src/backtest/engine.py
 - 当前命令仍可运行：
 
 ```bash
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
 ```
 
 - 当前 `MomentumFactor` 仍可通过 `FACTOR_REGISTRY["momentum"]` 创建。
@@ -409,34 +409,34 @@ data/meta/
 ### 输入
 
 - 工作包一至五全部结果。
-- 当前 `src.main` 数据更新命令。
-- 当前 `src.runner.backtest_runner`。
+- 当前 `src.cli.data` 数据维护命令。
+- 当时的 `src.runner.backtest_runner`（现为 `src.backtest.backtest_runner`）。
 - 当前 README 和 docs。
 
 ### 输出
 
-- `src/research.py` 统一研究入口。
+- `src/cli/research.py` 统一研究入口。
 - 因子命令：
 
 ```bash
-python -m src.research factor create ...
-python -m src.research factor check --config ...
-python -m src.research factor evaluate --config ...
-python -m src.research factor list
-python -m src.research factor show --factor-id ...
-python -m src.research factor set-status --factor-id ... --status approved
+python -m src.cli.research factor create ...
+python -m src.cli.research factor check --config ...
+python -m src.cli.research factor evaluate --config ...
+python -m src.cli.research factor list
+python -m src.cli.research factor show --factor-id ...
+python -m src.cli.research factor set-status --factor-id ... --status approved
 ```
 
 - 模型命令：
 
 ```bash
-python -m src.research model evaluate --config ...
+python -m src.cli.research model evaluate --config ...
 ```
 
 - 策略命令：
 
 ```bash
-python -m src.research strategy backtest --config ...
+python -m src.cli.research strategy backtest --config ...
 ```
 
 - `artifacts/factor_runs/`、`artifacts/model_runs/`、`artifacts/strategy_runs/` 的标准输出管理。
@@ -449,7 +449,7 @@ python -m src.research strategy backtest --config ...
 允许新增或修改：
 
 ```text
-src/research.py
+src/cli/research.py
 src/runner/
 src/factor_lab/
 src/model_lab/
@@ -464,7 +464,7 @@ tests/ 或项目现有测试目录
 谨慎修改：
 
 ```text
-src/main.py
+src/cli/data.py
 src/backtest/
 ```
 
@@ -487,8 +487,8 @@ token 文件
 - 旧命令仍可运行：
 
 ```bash
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
-python -m src.main daily_update --end ... --token ...
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.cli.data daily_update --end ... --token ...
 ```
 
 - 运行结果可复现，包含配置快照、输入摘要、输出指标和日志。
@@ -498,7 +498,7 @@ python -m src.main daily_update --end ... --token ...
 
 ### 回滚和兼容要求
 
-- 新 `src.research` 可作为包装入口移除，旧 `src.main` 和 `src.runner.backtest_runner` 保持可用。
+- `src.cli.research`、`src.cli.data` 与 `src.backtest.backtest_runner` 保持可用。
 - 旧配置迁移应是显式操作，不应在读取时隐式改写用户文件。
 - 运行结果写入 `artifacts/`，不得污染源数据。
 
@@ -528,7 +528,7 @@ python -m src.main daily_update --end ... --token ...
 - FactorEvaluator、FactorStore、FactorCatalog；
 - AlphaModel、FactorAligner、ModelEvaluator；
 - PortfolioBuilder、RebalancePolicy、Timing/Risk 接口、StrategyPipeline 和统一策略回测；
-- `python -m src.research` 统一 CLI；
+- `python -m src.cli.research` 统一研究 CLI；
 - factor/model/strategy 三类运行产物和 `run_manifest.json`；
 - legacy `momentum_top50_monthly.yaml` 和旧 runner 兼容。
 

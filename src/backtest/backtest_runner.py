@@ -10,7 +10,7 @@ from src.backtest.performance import PerformanceAnalyzer
 from src.datahub.data_manager import DataManager
 from src.factors.processor import FactorProcessor
 from src.factors.registry import FACTOR_REGISTRY
-from src.runner.config_loader import load_strategy_config
+from src.core.config_loader import load_strategy_config
 from src.strategies.registry import STRATEGY_REGISTRY
 from src.universe.universe_builder import UniverseBuilder
 

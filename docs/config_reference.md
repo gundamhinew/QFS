@@ -158,7 +158,7 @@ The strategy config references a model config and produces `target_positions` th
 `configs/strategies/momentum_top50_monthly.yaml` is still supported by:
 
 ```bash
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
 ```
 
 It contains factor, universe, portfolio, and backtest settings in one file. New configs should use the separated factor/model/strategy format.

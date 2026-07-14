@@ -4,8 +4,8 @@ import pandas as pd
 
 from src.contracts.portfolio_frames import validate_target_positions
 from src.portfolio.registry import PORTFOLIO_REGISTRY
-from src.risk.basic import BasicWeightConstraint
-from src.risk.noop import NoOpRisk
+from src.strategies.constraints.basic import BasicWeightConstraint
+from src.strategies.constraints.noop import NoOpRisk
 from src.strategies.rebalance_policy import RebalancePolicy
 from src.timing.noop import NoOpTiming
 

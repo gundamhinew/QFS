@@ -9,7 +9,7 @@ The current architecture uses `target_positions` as the boundary between researc
 The recommended research entry point is:
 
 ```bash
-python -m src.research --help
+python -m src.cli.research --help
 ```
 
 The complete workflow is:
@@ -31,59 +31,78 @@ update data
 Update local data with the existing data commands:
 
 ```bash
-python -m src.main bootstrap --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
-python -m src.main sync_daily_range --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
-python -m src.main daily_update --end 20260702 --token YOUR_TUSHARE_TOKEN
-python -m src.main financial_update --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
+python -m src.cli.data bootstrap --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
+python -m src.cli.data sync_daily_range --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
+python -m src.cli.data daily_update --end 20260702 --token YOUR_TUSHARE_TOKEN
+python -m src.cli.data financial_update --start 20160101 --end 20260702 --token YOUR_TUSHARE_TOKEN
 ```
 
 Create a factor template:
 
 ```bash
-python -m src.research factor create --factor-id example_factor --implementation example --class-name ExampleFactor
+python -m src.cli.research factor create --factor-id example_factor --implementation example --class-name ExampleFactor
 ```
 
 Check a factor:
 
 ```bash
-python -m src.research factor check --config configs/factors/momentum_60.yaml
+python -m src.cli.research factor check --config configs/factors/momentum_60.yaml
 ```
 
 Evaluate a factor:
 
 ```bash
-python -m src.research factor evaluate --config configs/factors/momentum_60.yaml
+python -m src.cli.research factor evaluate --config configs/factors/momentum_60.yaml
 ```
 
 Review and approve factor catalog state:
 
 ```bash
-python -m src.research factor list
-python -m src.research factor show --factor-id momentum_60
-python -m src.research factor set-status --factor-id momentum_60 --status approved
+python -m src.cli.research factor list
+python -m src.cli.research factor show --factor-id momentum_60
+python -m src.cli.research factor set-status --factor-id momentum_60 --status approved
 ```
 
 Evaluate an alpha model:
 
 ```bash
-python -m src.research model evaluate --config configs/models/momentum_single.yaml
+python -m src.cli.research model evaluate --config configs/models/momentum_single.yaml
 ```
 
 Run the unified strategy pipeline and backtest:
 
 ```bash
-python -m src.research strategy backtest --config configs/strategies/momentum_top50_monthly_v2.yaml
+python -m src.cli.research strategy backtest --config configs/strategies/momentum_top50_monthly_v2.yaml
 ```
 
 The legacy strategy runner is still supported:
 
 ```bash
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
 ```
 
 `configs/strategies/momentum_top50_monthly.yaml` is the legacy single-factor strategy config. It remains runnable for compatibility, but new research should use separate factor, model, and strategy configs.
 
 ## Architecture
+
+The source tree is organized by quantitative-research domain:
+
+```text
+src/
+|-- cli/
+|   |-- data.py           # data initialization, download, and synchronization
+|   `-- research.py       # factor, model, and strategy research commands
+|-- core/                 # config, run metadata, artifact persistence
+|-- contracts/            # cross-domain dataframe contracts
+|-- factors/              # factor definitions and research lifecycle
+|-- alpha_models/         # model construction, checks, evaluation, reports
+|-- portfolio/            # model scores to portfolio weights
+|-- timing/               # exposure overlays
+|-- strategies/           # pipeline orchestration and constraints
+|   `-- constraints/      # weight normalization and position limits
+|-- backtest/             # execution, accounting, performance, runner
+`-- legacy/               # superseded compatibility boundaries
+```
 
 ```text
 DataManager
@@ -96,7 +115,7 @@ DataManager
 -> StrategyPipeline
 -> PortfolioBuilder
 -> TimingOverlay
--> RiskOverlay
+-> Constraints
 -> target_positions
 -> BacktestEngine
 -> PerformanceAnalyzer
@@ -163,7 +182,7 @@ Artifacts are ignored by Git.
 
 `scratch_run_momentum_actual.py` has been moved to `examples/legacy/` as historical reference only. It is not a formal entry point.
 
-`examples/run_momentum_backtest.py` is a demonstration script. For reproducible research, use `python -m src.research` or the legacy runner command above.
+`examples/run_momentum_backtest.py` is a demonstration script. For reproducible research, use `python -m src.cli.research` or the legacy runner command above.
 
 ## Data Contract Summary
 

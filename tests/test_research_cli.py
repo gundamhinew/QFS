@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.factor_lab.checker import FactorCheckReport
-import src.research as research
+from src.factors.checker import FactorCheckReport
+import src.cli.research as research
 
 
 @dataclass(frozen=True)

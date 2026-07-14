@@ -7,17 +7,17 @@ import pandas as pd
 from src.alpha_models import ALPHA_MODEL_REGISTRY
 from src.alpha_models.aligner import FactorAligner
 from src.datahub.data_manager import DataManager
-from src.factor_lab.forward_returns import calculate_forward_returns
-from src.factor_lab.store import FactorStore
-from src.model_lab.checker import ModelChecker
-from src.model_lab.evaluator import ModelEvaluator
-from src.model_lab.report import write_json, write_parquet, write_yaml_snapshot
-from src.runner.config_loader import (
+from src.factors.forward_returns import calculate_forward_returns
+from src.factors.store import FactorStore
+from src.alpha_models.checker import ModelChecker
+from src.alpha_models.evaluator import ModelEvaluator
+from src.alpha_models.report import write_json, write_parquet, write_yaml_snapshot
+from src.core.config_loader import (
     load_factor_config,
     load_model_config,
     resolve_project_path,
 )
-from src.runner.run_metadata import base_run_manifest, make_run_id, row_counts, utc_now_iso
+from src.core.run_metadata import base_run_manifest, make_run_id, row_counts, utc_now_iso
 
 
 def _factor_alias(item: dict) -> str:

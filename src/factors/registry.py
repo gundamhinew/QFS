@@ -138,6 +138,17 @@ DISCOVERY_SKIP_MODULES = {
     "base",
     "registry",
     "discovery",
+    # Research-lifecycle modules share the factor domain but do not define
+    # registerable factor implementations.
+    "catalog",
+    "checker",
+    "evaluator",
+    "factor_runner",
+    "forward_returns",
+    "processor",
+    "quantile_analysis",
+    "scaffold",
+    "store",
 }
 
 

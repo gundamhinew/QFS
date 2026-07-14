@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.runner.config_loader import PROJECT_ROOT, resolve_project_path
+from src.core.config_loader import PROJECT_ROOT, resolve_project_path
 
 
 def canonical_config_for_hash(config: dict) -> dict[str, Any]:

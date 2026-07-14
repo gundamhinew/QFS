@@ -30,7 +30,7 @@ src/
 ├── backtest/      # BacktestEngine、Broker、Account、交易规则、绩效分析
 ├── runner/        # 配置加载和 backtest_runner
 ├── qmt/           # 预留目录，当前未实现正式执行层
-└── main.py        # 数据更新命令入口
+└── cli/data.py    # 数据维护命令入口
 ```
 
 配置和数据入口如下：
@@ -50,7 +50,7 @@ data/
 当前推荐运行方式是：
 
 ```bash
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
 ```
 
 当前链路的关键行为：
@@ -169,7 +169,7 @@ src/
 ├── backtest/
 ├── execution/
 ├── runner/
-└── research.py
+└── cli/research.py
 ```
 
 目标配置结构如下：
@@ -595,24 +595,24 @@ configs/strategies/<strategy_id>.yaml
 目标 CLI 入口：
 
 ```bash
-python -m src.research factor create ...
-python -m src.research factor check --config ...
-python -m src.research factor evaluate --config ...
-python -m src.research factor list
-python -m src.research factor show --factor-id ...
-python -m src.research factor set-status --factor-id ... --status approved
-python -m src.research model evaluate --config ...
-python -m src.research strategy backtest --config ...
+python -m src.cli.research factor create ...
+python -m src.cli.research factor check --config ...
+python -m src.cli.research factor evaluate --config ...
+python -m src.cli.research factor list
+python -m src.cli.research factor show --factor-id ...
+python -m src.cli.research factor set-status --factor-id ... --status approved
+python -m src.cli.research model evaluate --config ...
+python -m src.cli.research strategy backtest --config ...
 ```
 
 兼容入口必须保留：
 
 ```bash
-python -m src.main bootstrap --start ... --end ... --token ...
-python -m src.main sync_daily_range --start ... --end ... --token ...
-python -m src.main daily_update --end ... --token ...
-python -m src.main financial_update --start ... --end ... --token ...
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.cli.data bootstrap --start ... --end ... --token ...
+python -m src.cli.data sync_daily_range --start ... --end ... --token ...
+python -m src.cli.data daily_update --end ... --token ...
+python -m src.cli.data financial_update --start ... --end ... --token ...
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
 ```
 
 CLI 迁移原则：
@@ -690,7 +690,7 @@ CLI 迁移原则：
 截至工作包六，项目已经具备统一研究入口：
 
 ```bash
-python -m src.research --help
+python -m src.cli.research --help
 ```
 
 已落地的主流程为：
@@ -714,7 +714,7 @@ artifacts/strategy_runs/<strategy_id>/<run_id>/
 旧入口仍保留：
 
 ```bash
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
 ```
 
 `scratch_run_momentum_actual.py` 已作为历史参考移动到 `examples/legacy/`，不再作为 README 推荐入口。

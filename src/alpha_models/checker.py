@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.factor_lab.catalog import FactorCatalog
-from src.runner.config_loader import load_factor_config
+from src.factors.catalog import FactorCatalog
+from src.core.config_loader import load_factor_config
 
 
 class ModelChecker:

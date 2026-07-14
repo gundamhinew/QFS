@@ -1,3 +1,5 @@
+"""Contract for final target positions consumed by backtest execution."""
+
 from __future__ import annotations
 
 import numpy as np

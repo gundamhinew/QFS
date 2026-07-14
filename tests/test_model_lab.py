@@ -6,9 +6,9 @@ import pandas as pd
 import pytest
 import yaml
 
-from src.factor_lab.catalog import FactorCatalog
-from src.model_lab.checker import ModelChecker
-from src.model_lab.evaluator import ModelEvaluator
+from src.factors.catalog import FactorCatalog
+from src.alpha_models.checker import ModelChecker
+from src.alpha_models.evaluator import ModelEvaluator
 
 
 def _write_factor_config(root: Path, factor_id: str, status: str) -> Path:

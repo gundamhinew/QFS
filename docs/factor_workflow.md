@@ -7,7 +7,7 @@ This document describes the standard workflow for adding, checking, evaluating, 
 Use the existing data entry point:
 
 ```bash
-python -m src.main daily_update --end 20260702 --token YOUR_TUSHARE_TOKEN
+python -m src.cli.data daily_update --end 20260702 --token YOUR_TUSHARE_TOKEN
 ```
 
 The research commands read local data through `DataManager`. They do not call Tushare directly.
@@ -15,7 +15,7 @@ The research commands read local data through `DataManager`. They do not call Tu
 ## 2. Create A Factor Template
 
 ```bash
-python -m src.research factor create \
+python -m src.cli.research factor create \
   --factor-id example_factor \
   --implementation example \
   --class-name ExampleFactor
@@ -53,7 +53,7 @@ factor_value
 ## 4. Check The Factor
 
 ```bash
-python -m src.research factor check --config configs/factors/momentum_60.yaml
+python -m src.cli.research factor check --config configs/factors/momentum_60.yaml
 ```
 
 `FactorChecker` checks config validity, registration, build success, raw frame schema, duplicate keys, NaN and inf counts, date coverage, cross-section size, constant values, and universe match.
@@ -63,7 +63,7 @@ This step checks implementation and data quality only. It does not calculate IC 
 ## 5. Evaluate The Factor
 
 ```bash
-python -m src.research factor evaluate --config configs/factors/momentum_60.yaml
+python -m src.cli.research factor evaluate --config configs/factors/momentum_60.yaml
 ```
 
 The evaluator computes research-only forward returns from T close to T+h close. These returns are for factor research and are not executable trading returns.
@@ -79,8 +79,8 @@ The directory includes `config_snapshot.yaml`, `run_manifest.json`, `summary.jso
 ## 6. Review The Factor Catalog
 
 ```bash
-python -m src.research factor list
-python -m src.research factor show --factor-id momentum_60
+python -m src.cli.research factor list
+python -m src.cli.research factor show --factor-id momentum_60
 ```
 
 After a successful evaluation, a draft factor may become `tested`. It never becomes `approved` automatically.
@@ -90,7 +90,7 @@ After a successful evaluation, a draft factor may become `tested`. It never beco
 Approve explicitly:
 
 ```bash
-python -m src.research factor set-status --factor-id momentum_60 --status approved
+python -m src.cli.research factor set-status --factor-id momentum_60 --status approved
 ```
 
 Valid statuses:
@@ -124,4 +124,4 @@ evaluation:
 
 ## Legacy Notes
 
-The old `configs/strategies/momentum_top50_monthly.yaml` remains supported by `src.runner.backtest_runner`. New factor research should use `src.research`.
+The old `configs/strategies/momentum_top50_monthly.yaml` remains supported by `src.backtest.backtest_runner`. New factor research should use `src.cli.research`.

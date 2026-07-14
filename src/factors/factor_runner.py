@@ -6,16 +6,16 @@ from typing import Any
 import pandas as pd
 
 from src.datahub.data_manager import DataManager
-from src.factor_lab.catalog import FactorCatalog
-from src.factor_lab.checker import FAIL, FactorCheckReport, FactorChecker
-from src.factor_lab.evaluator import FactorEvaluator
-from src.factor_lab.forward_returns import DEFAULT_FORWARD_PERIODS, calculate_forward_returns
-from src.factor_lab.report import write_json, write_parquet, write_yaml_snapshot
-from src.factor_lab.store import FactorStore
+from src.factors.catalog import FactorCatalog
+from src.factors.checker import FAIL, FactorCheckReport, FactorChecker
+from src.factors.evaluator import FactorEvaluator
+from src.factors.forward_returns import DEFAULT_FORWARD_PERIODS, calculate_forward_returns
+from src.core.artifact_store import write_json, write_parquet, write_yaml_snapshot
+from src.factors.store import FactorStore
 from src.factors.processor import FactorProcessor
 from src.factors.registry import DEFAULT_FACTOR_REGISTRY
-from src.runner.config_loader import load_factor_config, resolve_project_path
-from src.runner.run_metadata import base_run_manifest, make_run_id, row_counts, utc_now_iso
+from src.core.config_loader import load_factor_config, resolve_project_path
+from src.core.run_metadata import base_run_manifest, make_run_id, row_counts, utc_now_iso
 from src.universe.universe_builder import UniverseBuilder
 
 

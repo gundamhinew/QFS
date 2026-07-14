@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.factor_lab.evaluator import FactorEvaluator
-from src.factor_lab.quantile_analysis import (
+from src.factors.evaluator import FactorEvaluator
+from src.factors.quantile_analysis import (
     assign_quantiles,
     calculate_quantile_returns,
     calculate_top_bottom_spread,

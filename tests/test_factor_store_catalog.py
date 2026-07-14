@@ -6,9 +6,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.factor_lab.catalog import FactorCatalog
-from src.factor_lab.report import write_json
-from src.factor_lab.store import FactorStore, calculate_config_hash
+from src.factors.catalog import FactorCatalog
+from src.core.artifact_store import write_json
+from src.factors.store import FactorStore, calculate_config_hash
 
 
 def _config(status: str = "draft") -> dict:

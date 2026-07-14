@@ -1,3 +1,5 @@
+"""Contract for AlphaModel scores consumed by strategy pipelines."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -23,8 +25,8 @@ def validate_model_score_frame(df: pd.DataFrame) -> pd.DataFrame:
     """
     Validate and normalize a ModelScoreFrame.
 
-    This only defines the data contract for future AlphaModel output. It does
-    not implement any model construction logic.
+    This defines the AlphaModel output boundary and does not implement model
+    construction logic.
     """
 
     frame_name = "ModelScoreFrame"

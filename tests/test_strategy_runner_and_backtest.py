@@ -8,8 +8,8 @@ import pytest
 import yaml
 
 from src.backtest.engine import BacktestEngine
-from src.runner.strategy_runner import run_strategy_backtest_from_config
-from src.strategies.top_n_strategy import TopNEqualWeightStrategy
+from src.strategies.strategy_runner import run_strategy_backtest_from_config
+from src.legacy.strategies.top_n_strategy import TopNEqualWeightStrategy
 
 
 class MockDataManager:

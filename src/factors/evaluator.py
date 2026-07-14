@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.factor_lab.forward_returns import DEFAULT_FORWARD_PERIODS
-from src.factor_lab.quantile_analysis import (
+from src.factors.forward_returns import DEFAULT_FORWARD_PERIODS
+from src.factors.quantile_analysis import (
     assign_quantiles,
     calculate_monotonicity,
     calculate_quantile_nav,

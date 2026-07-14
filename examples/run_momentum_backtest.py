@@ -4,7 +4,7 @@ from __future__ import annotations
 This is only a demonstration script.
 
 The recommended production-style entry point is:
-python -m src.runner.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
+python -m src.backtest.backtest_runner --config configs/strategies/momentum_top50_monthly.yaml
 """
 
 import sys
@@ -23,7 +23,7 @@ from src.backtest.performance import PerformanceAnalyzer
 from src.datahub.data_manager import DataManager
 from src.factors.momentum import MomentumFactor
 from src.factors.processor import FactorProcessor
-from src.strategies.top_n_strategy import TopNEqualWeightStrategy
+from src.legacy.strategies.top_n_strategy import TopNEqualWeightStrategy
 from src.universe.universe_builder import UniverseBuilder
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.factor_lab.scaffold import create_factor_template
+from src.factors.scaffold import create_factor_template
 
 
 def test_create_factor_template_creates_expected_files(tmp_path):

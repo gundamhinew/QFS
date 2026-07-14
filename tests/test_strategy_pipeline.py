@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from src.portfolio.top_n_equal_weight import TopNEqualWeightPortfolio
-from src.risk.basic import BasicWeightConstraint
+from src.strategies.constraints.basic import BasicWeightConstraint
 from src.strategies.pipeline import StrategyPipeline
 from src.strategies.rebalance_policy import RebalancePolicy
 from src.timing.noop import NoOpTiming

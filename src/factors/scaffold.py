@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.runner.config_loader import PROJECT_ROOT
+from src.core.config_loader import PROJECT_ROOT
 
 
 @dataclass(frozen=True)

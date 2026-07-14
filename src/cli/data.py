@@ -1,3 +1,5 @@
+"""Command-line entry point for QFS data maintenance tasks."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,7 +12,9 @@ from src.datahub.jobs.financial_update import run_financial_update
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="QFS data maintenance command line interface."
+    )
     parser.add_argument(
         "job",
         choices=[

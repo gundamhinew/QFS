@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.runner.config_loader import (
+from src.core.config_loader import (
     ConfigError,
     get_schema_version,
     load_strategy_config,
@@ -131,7 +131,7 @@ class FakePerformanceAnalyzer:
 
 
 def test_old_backtest_runner_reaches_existing_logic(tmp_path, monkeypatch):
-    import src.runner.backtest_runner as runner
+    import src.backtest.backtest_runner as runner
 
     config_path = tmp_path / "strategy.yaml"
     config_path.write_text(

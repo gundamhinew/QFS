@@ -8,19 +8,19 @@ from src.alpha_models import ALPHA_MODEL_REGISTRY
 from src.backtest.engine import BacktestEngine
 from src.backtest.performance import PerformanceAnalyzer
 from src.datahub.data_manager import DataManager
-from src.factor_lab.store import FactorStore
-from src.model_lab.checker import ModelChecker
-from src.runner.config_loader import (
+from src.factors.store import FactorStore
+from src.alpha_models.checker import ModelChecker
+from src.core.config_loader import (
     load_factor_config,
     load_model_config,
     load_strategy_config,
     resolve_project_path,
 )
-from src.runner.factor_runner import _build_factor_data
-from src.runner.model_runner import _factor_alias
-from src.runner.run_metadata import base_run_manifest, make_run_id, row_counts, utc_now_iso
+from src.factors.factor_runner import _build_factor_data
+from src.alpha_models.model_runner import _factor_alias
+from src.core.run_metadata import base_run_manifest, make_run_id, row_counts, utc_now_iso
 from src.strategies.pipeline import StrategyPipeline
-from src.factor_lab.report import write_json, write_parquet, write_yaml_snapshot
+from src.core.artifact_store import write_json, write_parquet, write_yaml_snapshot
 
 
 def _get_mapping(config: dict, section: str) -> dict:

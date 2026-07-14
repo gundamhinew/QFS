@@ -1,3 +1,5 @@
+"""Contracts for raw factor observations and research-ready factor scores."""
+
 from __future__ import annotations
 
 import numpy as np

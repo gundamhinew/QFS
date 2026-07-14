@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from src.runner.config_loader import load_factor_config, resolve_project_path
+from src.core.config_loader import load_factor_config, resolve_project_path
 
 
 VALID_FACTOR_STATUSES = {

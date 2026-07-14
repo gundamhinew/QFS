@@ -1,4 +1,4 @@
-from src.strategies.top_n_strategy import TopNEqualWeightStrategy
+from src.legacy.strategies.top_n_strategy import TopNEqualWeightStrategy
 
 
 STRATEGY_REGISTRY = {
