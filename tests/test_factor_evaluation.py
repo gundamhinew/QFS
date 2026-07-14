@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from src.factors.evaluator import FactorEvaluator
+from src.factors.factor_runner import _get_evaluation_parameters
 from src.factors.forward_returns import calculate_forward_returns
 from src.factors.quantile_analysis import (
     assign_quantiles,
@@ -12,6 +13,31 @@ from src.factors.quantile_analysis import (
     calculate_quantile_turnover,
     calculate_top_bottom_spread,
 )
+
+
+def test_factor_evaluation_parameters_use_defaults_and_config_overrides():
+    assert _get_evaluation_parameters({}) == ([1, 5, 20], 5)
+    assert _get_evaluation_parameters({
+        "evaluation": {
+            "forward_periods": [2, 10],
+            "quantiles": 10,
+        }
+    }) == ([2, 10], 10)
+
+
+@pytest.mark.parametrize(
+    "evaluation",
+    [
+        {"forward_periods": []},
+        {"forward_periods": [1, 1]},
+        {"forward_periods": [0, 5]},
+        {"quantiles": 1},
+        {"quantiles": True},
+    ],
+)
+def test_factor_evaluation_parameters_reject_invalid_values(evaluation):
+    with pytest.raises(ValueError, match=r"evaluation\."):
+        _get_evaluation_parameters({"evaluation": evaluation})
 
 
 def test_forward_returns_close_to_future_close_and_tail_missing():

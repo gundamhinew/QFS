@@ -93,8 +93,8 @@ preprocess:
   standardize: true
 
 evaluation:
-  enabled: false
-  note: "Work package two only checks implementation and data quality."
+  forward_periods: [1, 5, 20]
+  quantiles: 5
 
 storage:
   save_raw_factor: false

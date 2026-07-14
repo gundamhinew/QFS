@@ -46,6 +46,12 @@ Important fields:
 
 `preprocess` controls `FactorProcessor` behavior such as direction, winsorization, and standardization.
 
+`evaluation.forward_periods` controls the forward-return horizons used for IC,
+Rank IC, decay, and quantile-return analysis. It defaults to `[1, 5, 20]`.
+
+`evaluation.quantiles` controls the number of cross-sectional factor groups. It
+defaults to `5` and must be an integer greater than one.
+
 `status` belongs to the factor catalog and can be `draft`, `tested`, `approved`, or `deprecated`.
 
 ## Model Config

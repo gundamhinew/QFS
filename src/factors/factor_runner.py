@@ -31,6 +31,40 @@ def _get_mapping(
     return value
 
 
+def _get_evaluation_parameters(config: dict) -> tuple[list[int], int]:
+    """Return validated factor-evaluation parameters from configuration."""
+
+    evaluation = _get_mapping(config, "evaluation")
+    raw_periods = evaluation.get(
+        "forward_periods",
+        DEFAULT_FORWARD_PERIODS,
+    )
+    raw_quantiles = evaluation.get("quantiles", 5)
+
+    if not isinstance(raw_periods, list) or not raw_periods:
+        raise ValueError("evaluation.forward_periods must be a non-empty list")
+
+    periods = []
+    for period in raw_periods:
+        if isinstance(period, bool) or not isinstance(period, int) or period <= 0:
+            raise ValueError(
+                "evaluation.forward_periods must contain positive integers"
+            )
+        periods.append(period)
+
+    if len(periods) != len(set(periods)):
+        raise ValueError("evaluation.forward_periods must not contain duplicates")
+
+    if (
+        isinstance(raw_quantiles, bool)
+        or not isinstance(raw_quantiles, int)
+        or raw_quantiles < 2
+    ):
+        raise ValueError("evaluation.quantiles must be an integer greater than 1")
+
+    return periods, raw_quantiles
+
+
 def _build_universe(
     config: dict,
     dm: DataManager,
@@ -284,6 +318,7 @@ def run_factor_evaluate_from_config(
 
     data_config = _get_mapping(config, "data")
     period = _get_mapping(config, "period")
+    forward_periods, quantiles = _get_evaluation_parameters(config)
     raw_root = resolve_project_path(data_config.get("raw_root", "data/raw"))
     dm = dm or DataManager(raw_root=str(raw_root))
 
@@ -331,10 +366,13 @@ def run_factor_evaluate_from_config(
     )
     forward_returns = calculate_forward_returns(
         price,
-        periods=DEFAULT_FORWARD_PERIODS,
+        periods=forward_periods,
         price_col="close",
     )
-    evaluator = FactorEvaluator(periods=DEFAULT_FORWARD_PERIODS, quantiles=5)
+    evaluator = FactorEvaluator(
+        periods=forward_periods,
+        quantiles=quantiles,
+    )
     evaluation_result = evaluator.evaluate(
         processed_factor=processed_factor,
         forward_returns=forward_returns,
@@ -369,6 +407,8 @@ def run_factor_evaluate_from_config(
             "cache_hit": cache_hit,
             "cache_dir": str(cache_dir),
             "store_manifest": cache_manifest,
+            "forward_periods": forward_periods,
+            "quantiles": quantiles,
             "forward_return_definition": "Research-only T close to T+h close; not executable trading return.",
         },
     )
