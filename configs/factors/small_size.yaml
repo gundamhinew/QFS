@@ -1,0 +1,30 @@
+schema_version: 2
+factor_id: small_size
+implementation: size
+version: 1
+status: draft
+metadata:
+  name: Small size
+  description: Natural logarithm of total market value.
+  owner: ''
+  category: size
+data:
+  raw_root: data/raw
+period:
+  start: '2020-01-01'
+  end: '2020-12-31'
+universe:
+  min_list_days: 120
+  min_close: 2.0
+  min_amount_yuan: 30000000
+params: {}
+preprocess:
+  direction: negative
+  winsorize: true
+  standardize: true
+evaluation:
+  forward_periods: [1, 5, 20]
+  quantiles: 5
+storage:
+  save_raw_factor: false
+  output_root: artifacts/factor_runs
