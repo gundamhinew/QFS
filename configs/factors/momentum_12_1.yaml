@@ -1,0 +1,33 @@
+schema_version: 2
+factor_id: momentum_12_1
+implementation: momentum_12_1
+version: 1
+status: draft
+metadata:
+  name: momentum_12_1
+  description: 12-1 total-return momentum excluding the most recent 21 trading days.
+  owner: ''
+  category: momentum
+data:
+  raw_root: data/raw
+period:
+  start: '2020-01-01'
+  end: '2020-12-31'
+universe:
+  min_list_days: 120
+  min_close: 2.0
+  min_amount_yuan: 30000000
+params:
+  lookback_trading_days: 252
+  skip_recent_trading_days: 21
+  history_buffer_calendar_days: 450
+preprocess:
+  direction: positive
+  winsorize: true
+  standardize: true
+evaluation:
+  forward_periods: [1, 5, 20]
+  quantiles: 5
+storage:
+  save_raw_factor: false
+  output_root: artifacts/factor_runs
